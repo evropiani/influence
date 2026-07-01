@@ -40,7 +40,9 @@ Each round opens with a short **spawn phase** where you pick your starting locat
 ```
 .
 ├── index.html      # landing page / how-to-play
-├── influence.html  # the game itself
+├── influence.html  # game markup
+├── influence.css   # game styles
+├── influence.js    # game logic
 └── favicon.svg
 ```
 
@@ -60,7 +62,7 @@ Hosted via GitHub Pages directly from this repo. Pushing to the default branch u
 
 ## Tuning
 
-Game balance lives in a single `CONFIG` object at the top of `influence.html`'s script — map size (`COLS`/`ROWS`), node count, round length, income rates, structure costs, and so on. Adjust and reload, no build step required.
+Game balance lives in a single `CONFIG` object at the top of `influence.js` — map size (`COLS`/`ROWS`), node count, round length, income rates, structure costs, and so on. Adjust and reload, no build step required.
 
 ## Feedback
 
