@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Influence — How to Play</title>
+<style>
+  :root{
+    --bg:#141821;--card:#1c2029;--panel:#2b313f;--line:#3a4255;
+    --ink:#e7e9ee;--muted:#97a2b4;--accent:#cf7a3f;
+    --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.65;
+    -webkit-font-smoothing:antialiased;padding:32px 18px 80px}
+  .wrap{max-width:740px;margin:0 auto}
+
+  header{margin-bottom:34px}
+  .badge{display:inline-block;font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--accent);border:1px solid var(--accent);border-radius:20px;padding:3px 11px;margin-bottom:14px}
+  h1{font-family:var(--mono);font-size:34px;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
+  .tag{color:var(--muted);font-size:15px;margin-top:8px}
+
+  section{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:22px 22px;margin-bottom:16px}
+  h2{font-family:var(--mono);font-size:16px;letter-spacing:.05em;text-transform:uppercase;margin-bottom:12px;
+    display:flex;align-items:center;gap:10px}
+  h2::before{content:"";width:10px;height:10px;border-radius:2px;background:var(--accent);flex:none}
+  p{color:#d4dae5;margin:9px 0}
+  p.lead{font-size:16px}
+  b{color:var(--ink);font-weight:600}
+  .accent{color:var(--accent);font-weight:600}
+
+  ul{list-style:none;margin:8px 0}
+  li{position:relative;padding-left:20px;margin:8px 0;color:#d4dae5}
+  li::before{content:"";position:absolute;left:2px;top:10px;width:6px;height:6px;border-radius:50%;background:var(--accent)}
+  .steps{counter-reset:s}
+  .steps li{padding-left:34px;margin:12px 0}
+  .steps li::before{counter-increment:s;content:counter(s);top:0;left:0;width:22px;height:22px;border-radius:6px;
+    background:var(--panel);color:var(--ink);font-family:var(--mono);font-size:12px;font-weight:700;
+    display:flex;align-items:center;justify-content:center}
+
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .sub{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+  @media (max-width:560px){ .two{grid-template-columns:1fr} h1{font-size:26px} }
+
+  .swatches{display:flex;gap:16px;flex-wrap:wrap;margin:12px 0 4px}
+  .demo{display:flex;align-items:center;gap:10px}
+  .box{width:34px;height:34px;border-radius:6px;border:1px solid rgba(255,255,255,.15)}
+  .demo .t{font-size:13px}.demo .t small{display:block;color:var(--muted);font-size:11px}
+
+  .node{width:20px;height:20px;border-radius:50%;display:inline-block;vertical-align:middle;border:2px solid rgba(255,255,255,.85);
+    background:radial-gradient(circle,#fff 22%,transparent 24%),#3a8f86}
+
+  .contact{background:linear-gradient(135deg,#2b313f,#242a37);border-color:#4a5266}
+  .discord{font-family:var(--mono);color:var(--accent);font-weight:700}
+  .discord a {text-decoration: none;color: inherit;}
+  a.play{display:inline-block;font-family:var(--mono);font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+    text-decoration:none;color:#141821;background:var(--accent);border-radius:10px;padding:12px 26px;margin-top:6px}
+  a.play:hover{filter:brightness(1.08)}
+  footer{color:var(--muted);font-size:12px;text-align:center;margin-top:28px;font-family:var(--mono)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="badge">Beta</div>
+    <h1>Influence</h1>
+    <p class="tag">A quick-round land grab. Paint the most ground before the clock runs out — or wipe everyone off the map.</p>
+  </header>
+
+  <section>
+    <h2>The idea in 10 seconds</h2>
+    <p class="lead">You spend <span class="accent">influence</span> to claim cells and turn the map your colour. Land and captured <span class="accent">nodes</span> fund you. Whoever holds the most territory when time runs out wins.</p>
+  </section>
+
+  <section>
+    <h2>Controls</h2>
+    <div class="two">
+      <div>
+        <div class="sub">On a computer</div>
+        <ul>
+          <li><b>Click toward</b> where you want to grow — your nearest border pushes that way.</li>
+          <li><b>Drag</b> to pan, <b>mouse wheel</b> to zoom. <b>WASD</b> or arrow keys pan too.</li>
+          <li><b>Minimap</b> (corner): click to jump across the map.</li>
+        </ul>
+      </div>
+      <div>
+        <div class="sub">On a phone</div>
+        <ul>
+          <li><b>Tap toward</b> where you want to grow.</li>
+          <li><b>One finger drag</b> to pan, <b>pinch</b> to zoom.</li>
+          <li><b>Tap the minimap</b> to jump.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>How it works</h2>
+    <ul class="steps">
+      <li><b>Influence</b> is your currency (top-left). It refills on its own, and every point spends as one cell of empty land.</li>
+      <li>The <b>Commit</b> slider sets how much of your influence each tap spends. Slide low for careful pokes, high to throw everything at one push.</li>
+      <li><span class="node"></span> <b>Nodes</b> are the ringed points dotted around the map. Grow your territory over one to <b>capture</b> it. Nodes are your economy — they pay influence over time, raise your influence limit, and act as supply points. Grabbing one also drops an instant bonus (bigger for stealing an enemy's).</li>
+      <li>Your influence has a <b>cap</b> (shown as <span class="accent">X / limit</span>) that grows as you capture nodes. You can't hoard a giant reserve, so getting big first doesn't let you sit back and steamroll — you have to spend well.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Fighting &amp; entrenchment</h2>
+    <p>Empty land costs <b>1</b> influence per cell. Taking an <b>enemy's</b> cell costs more — and the longer they've held it, the tougher it gets. You can see this at a glance: fresh land is bright, dug-in land is darker.</p>
+    <div class="swatches">
+      <div class="demo"><span class="box" style="background:#3a8f86"></span><span class="t">Bright<small>fresh · weak · cheap to take</small></span></div>
+      <div class="demo"><span class="box" style="background:#245953"></span><span class="t">Dark<small>dug in · tough · expensive</small></span></div>
+    </div>
+    <p>So aim for <span class="accent">bright, soft seams</span> and avoid grinding straight into a dark, fortified core. Capturing an enemy's <b>node</b> is the real prize — a fat influence bonus, and it starves their economy.</p>
+  </section>
+
+  <section>
+    <h2>Supply lines</h2>
+    <p>Pushing far from your own nodes costs <b>extra</b> per cell — you can't lunge clear across the map in one move. To reach further, capture nodes along the way: every node you own widens the area you can expand into cheaply.</p>
+    <p class="accent">Build outward, node by node — don't overreach.</p>
+  </section>
+
+  <section>
+    <h2>Your base</h2>
+    <p>The <b>ringed marker</b> sitting in your territory is your base. Hang on to it — if an enemy captures it, your income drops by <span class="accent">30%</span> until you build a new one.</p>
+    <p>To rebuild: hold a node long enough that it's <b>fully dug in</b> (its cell reaches maximum entrenchment), then tap it and pay <span class="accent">300 influence</span>. It turns into your new base and your income is restored. Nodes you can convert will glow, so you always know your options.</p>
+  </section>
+
+  <section>
+    <h2>Quick tips</h2>
+    <ul>
+      <li>Grab the nodes near you first. They pay for everything and extend how far you can reach.</li>
+      <li>Read the colours: bright edges are weak points, dark ones are fortified.</li>
+      <li>A capped bar spent far from your nodes buys almost nothing. Set up a forward node first, then strike.</li>
+      <li>Borders you've held a while are cheap to defend and costly to crack — patience pays.</li>
+    </ul>
+  </section>
+
+  <section class="contact">
+    <h2>It's a beta</h2>
+    <p>This is early — expect things to change, break, and get better. If you've got ideas, feedback, or you hit a bug, I'd love to hear it.</p>
+    <p>Find me on Discord: <span class="discord"><a href="https://discord.com/users/319246364246540288/">@evropiani</a></span></p>
+    <a class="play" href="territory.html">Play</a>
+  </section>
+
+  <footer>Influence · Beta</footer>
+</div>
+</body>
+</html>
