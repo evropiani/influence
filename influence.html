@@ -46,6 +46,12 @@
   #pctV{font-variant-numeric:tabular-nums;font-weight:700;min-width:38px}
   .commit .ctx{color:var(--muted)}.commit .ctx b{color:var(--ink);font-variant-numeric:tabular-nums}
   #cellInfo{color:var(--muted)}
+  #buildbar{display:flex;gap:6px}
+  .bbtn{font-family:var(--mono);font-size:11px;letter-spacing:.02em;color:var(--ink);background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:6px 10px;cursor:pointer;white-space:nowrap}
+  .bbtn:hover:not(:disabled){border-color:var(--accent)}
+  .bbtn.on{background:var(--accent);color:#141821;border-color:var(--accent);font-weight:700}
+  .bbtn:disabled{opacity:.4;cursor:default}
+  #spawnHint{position:absolute;left:50%;top:12px;transform:translateX(-50%);background:rgba(20,24,32,.92);border:1px solid var(--accent);color:var(--ink);font-size:13px;letter-spacing:.02em;padding:8px 16px;border-radius:10px;pointer-events:none;white-space:nowrap;display:none;z-index:3}
   .spacer{flex:1}
   #hint{color:var(--muted);font-size:11px;text-align:right}
 
@@ -75,10 +81,22 @@
   .sw{width:30px;height:30px;border-radius:8px;cursor:pointer;border:2px solid transparent;transition:transform .08s}
   .sw:hover{transform:scale(1.08)}.sw.sel{border-color:var(--ink);box-shadow:0 0 0 2px var(--bg)}
   .sw:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+  .customwrap{position:relative;display:inline-block;line-height:0;border-radius:8px}
+  .customwrap>.sw{display:block}
+  .customwrap.sel>.sw{border-color:var(--ink);box-shadow:0 0 0 2px var(--bg)}
+  .customwrap>.pen{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:14px;line-height:1;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.7);pointer-events:none}
+  .numin{font-family:var(--mono);font-size:15px;text-align:center;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:9px 8px;width:88px}
+  .numin:focus{outline:2px solid var(--accent);outline-offset:1px}
   #opps{display:flex;gap:6px}
   .seg{font-family:var(--mono);font-size:13px;color:var(--muted);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:7px 14px;cursor:pointer}
   .seg.sel{color:var(--ink);background:var(--panel-2);border-color:var(--accent)}
   .seg:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+  #mode{display:flex;gap:6px}
+  .sbc{display:flex;align-items:center;gap:7px;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:5px 11px}
+  .sbc .chip{width:11px;height:11px;border-radius:3px;flex:none}
+  .sbc .sbk{color:var(--muted);text-transform:uppercase;font-size:10px;letter-spacing:.08em}
+  .sbc .sbv{font-size:14px;font-variant-numeric:tabular-nums;font-weight:700}
+  .sbc .sbsep{color:var(--line)}
   #standings{display:flex;flex-direction:column;gap:6px;font-size:13px;min-width:240px}
   #standings .row{display:flex;align-items:center;gap:9px}
   #standings .row .nm{flex:1;text-align:left;text-transform:uppercase;letter-spacing:.04em;overflow:hidden;text-overflow:ellipsis}
@@ -100,14 +118,16 @@
     <canvas id="game" width="1000" height="667"></canvas>
     <canvas id="minimap" width="150" height="101"></canvas>
     <div id="flash"></div>
+    <div id="spawnHint"></div>
     <div id="overlay">
      <div id="ovbox">
       <div id="otitle">Influence</div>
       <div id="osub"></div>
       <div id="setup" class="field" style="gap:18px">
         <div class="field"><label>Clan tag &amp; name</label><div class="namerow"><input id="tagIn" maxlength="3" placeholder="TAG" autocomplete="off"><input id="nameIn" maxlength="14" value="Player" autocomplete="off"></div></div>
-        <div class="field"><label>Your colour</label><div id="swatches"></div><div class="pickhint">last swatch = custom colour</div></div>
-        <div class="field"><label>Opponents</label><div id="opps"></div></div>
+        <div class="field"><label>Your colour</label><div id="swatches"></div></div>
+        <div class="field"><label>Opponents (1–99)</label><div id="opps"></div></div>
+        <div class="field"><label>Mode</label><div id="mode"></div></div>
       </div>
       <div id="standings"></div>
       <button id="obtn">Start</button>
@@ -120,8 +140,13 @@
     <div class="commit"><span class="k">Commit</span><input id="pct" type="range" min="5" max="100" step="5" value="50"><span id="pctV">50%</span><span class="ctx">&rarr; <b id="budgetV">0</b> px</span></div>
     <span id="cellInfo"></span>
     <span id="baseInfo" class="ok"></span>
+    <div id="buildbar">
+      <button id="wallBtn" class="bbtn" disabled>Wall 20</button>
+      <button id="farmBtn" class="bbtn" disabled>Farm 500</button>
+      <button id="outBtn" class="bbtn" disabled>Outpost 300</button>
+    </div>
     <div class="spacer"></div>
-    <div id="hint">Tap toward where you want to grow · drag to pan · wheel to zoom</div>
+    <div id="hint">Tap to grow · drag to pan · wheel to zoom · Ctrl+click or Wall to build walls</div>
   </div>
 </div>
 
@@ -129,10 +154,11 @@
 "use strict";
 
 const CONFIG = {
-  COLS:160, ROWS:108, CELL:14,
-  NODE_COUNT:46, NODE_SPACING:9,
+  COLS:220, ROWS:150, CELL:14,
+  NODE_COUNT:90, NODE_SPACING:9,
   START_R:4,
-  ROUND_SECONDS:240,
+  ROUND_SECONDS:300,
+  SPAWN_SECONDS:10,
   START_INFLUENCE:120,
   INCOME_PER_NODE:2.2,
   INCOME_PER_CELL:0.01,
@@ -143,8 +169,11 @@ const CONFIG = {
   SUPPLY_RANGE:22, SUPPLY_FALLOFF:6, SUPPLY_MAX:12,
   ENTRENCH_SHADE:0.38,
   BASE_COST:300, BASE_PENALTY:0.30,
+  WALL_COST:20, WALL_DESTROY:15,
+  FARM_COST:500, FARM_PERIOD:30, FARM_YIELD:100,
+  OUTPOST_COST:300, OUTPOST_PERIOD:20, OUTPOST_SHOTS:30, OUTPOST_RADIUS:15,
   DEFAULT_PCT:50,
-  ZOOM_MIN:0.35, ZOOM_MAX:1.7, ZOOM_START:0.75, PAN_KEY_SPEED:760,
+  ZOOM_MIN:0.28, ZOOM_MAX:1.7, ZOOM_START:0.7, PAN_KEY_SPEED:760,
   BOT_SKILL:0.6,
 };
 
@@ -188,9 +217,17 @@ let cam={x:0,y:0,zoom:CONFIG.ZOOM_START};
 let running=false, timeLeft=0, lastT=0;
 let commitPct=CONFIG.DEFAULT_PCT;
 let flashes=[];
-let setupSel={color:0, opponents:3, custom:null};
+let setupSel={color:0, opponents:3, custom:null, mode:"timed"};
 const keys=new Set();
 let lastCursorCell=null;
+const wall=new Uint8Array(N);
+let builds=[];
+const structAt=new Map();
+let phase="over";
+let spawnLeft=0, playStart=0;
+let buildMode=null;
+let gameMode="timed";
+let wallWarned=false;
 
 const rand=(a,b)=>a+Math.random()*(b-a);
 const clamp=(v,a,b)=>v<a?a:(v>b?b:v);
@@ -242,11 +279,13 @@ function expandToward(pIdx, tx, ty, budgetCap){
     if(owner[idx]===pIdx) continue;
     const c=idx%COLS, r=(idx/COLS)|0;
     const enemy = owner[idx]>=0;
-    const cost = (enemy ? enemyCost(idx) : 1) + supplyPenalty(c,r,pIdx);
+    let cost = (enemy ? enemyCost(idx) : 1) + supplyPenalty(c,r,pIdx);
+    if(enemy && wall[idx]) cost += CONFIG.WALL_DESTROY;
     if(budget<cost) continue;
     const prev=owner[idx];
-    owner[idx]=pIdx; defense[idx]=0; budget-=cost; spent+=cost;
+    owner[idx]=pIdx; defense[idx]=0; if(wall[idx]) wall[idx]=0; budget-=cost; spent+=cost;
     players[pIdx].cells++; if(prev>=0) players[prev].cells--;
+    const s=structAt.get(idx); if(s){ s.alive=false; structAt.delete(idx); }
     const nIdx=cellNode[idx]; if(nIdx>=0) captureNode(nIdx,pIdx);
     seedCandidate(c-1,r,tx,ty,pIdx); seedCandidate(c+1,r,tx,ty,pIdx);
     seedCandidate(c,r-1,tx,ty,pIdx); seedCandidate(c,r+1,tx,ty,pIdx);
@@ -276,7 +315,7 @@ function makeBase(nIdx, pIdx){
   return true;
 }
 
-function clearGrid(){ owner.fill(-1); cellNode.fill(-1); stamp.fill(0); defense.fill(0); gen=0; nodes=[]; flashes=[]; }
+function clearGrid(){ owner.fill(-1); cellNode.fill(-1); stamp.fill(0); defense.fill(0); wall.fill(0); gen=0; nodes=[]; flashes=[]; builds=[]; structAt.clear(); }
 function farFromNodes(cx,cy,minD){ for(const nd of nodes){ const dx=nd.cx-cx,dy=nd.cy-cy; if(dx*dx+dy*dy<minD*minD) return false; } return true; }
 function scatterNeutralNodes(){
   let guard=0;
@@ -296,32 +335,125 @@ function fillDisc(cx,cy,R,pIdx){
     owner[i]=pIdx; players[pIdx].cells++;
   }
 }
-function newRound(){
-  clearGrid();
-  players.forEach(pl=>{ pl.cells=0; pl.nodeCount=0; pl.alive=true; pl.influence=CONFIG.START_INFLUENCE; pl._next=0; });
-  const cols=Math.ceil(Math.sqrt(players.length));
-  const rows=Math.ceil(players.length/cols);
-  players.forEach((pl,i)=>{
-    const gx=(i%cols+0.5)/cols, gy=(Math.floor(i/cols)+0.5)/rows;
-    const cx=Math.round(gx*(COLS-20)+10), cy=Math.round(gy*(ROWS-20)+10);
-    const bi=nodes.length;
-    nodes.push({cx,cy,owner:pl.idx,base:true});
-    pl.nodeCount=1; pl.hasBase=true; pl.baseIdx=bi;
-    fillDisc(cx,cy,CONFIG.START_R,pl.idx);
-    pl._home={cx,cy};
-  });
-  scatterNeutralNodes();
-  for(let i=0;i<nodes.length;i++){ const nd=nodes[i]; cellNode[nd.cy*COLS+nd.cx]=i; }
+function computeColors(){
   playerColors=players.map(p=>rgbStr(p.rgb));
   playerShades=players.map(p=>{ const a=[]; for(let l=0;l<ENTRENCH_LEVELS;l++){ a.push(rgbStr(mix(p.rgb,[0,0,0],(l/(ENTRENCH_LEVELS-1))*CONFIG.ENTRENCH_SHADE))); } return a; });
-  const h=players[0]._home;
+}
+function rebuildCellNode(){ cellNode.fill(-1); for(let i=0;i<nodes.length;i++){ const nd=nodes[i]; cellNode[nd.cy*COLS+nd.cx]=i; } }
+function starPath(cx,cy,rO,rI,pts,rot){ ctx.beginPath();
+  for(let i=0;i<pts*2;i++){ const rr=(i&1)?rI:rO, a=rot+i*Math.PI/pts, x=cx+Math.cos(a)*rr, y=cy+Math.sin(a)*rr; i?ctx.lineTo(x,y):ctx.moveTo(x,y); }
+  ctx.closePath(); }
+function hslToRgb(h,s,l){ h=((h%360)+360)%360/360; const a=s*Math.min(l,1-l);
+  const f=n=>{ const k=(n+h*12)%12; return Math.round(255*(l - a*Math.max(-1,Math.min(k-3,9-k,1)))); };
+  return [f(0),f(8),f(4)]; }
+function makeBotColors(count, usedPreset){
+  const out=[];
+  if(count<=PALETTE.length){
+    const pool = usedPreset ? PALETTE.filter((_,i)=>i!==setupSel.color) : PALETTE.slice();
+    for(let i=0;i<count;i++) out.push({name:pool[i].name, rgb:pool[i].rgb});
+  } else {
+    for(let i=0;i<count;i++){ const hue=(i*137.508+40)%360; out.push({name:"Bot "+(i+1), rgb:hslToRgb(hue,0.42,0.55)}); }
+  }
+  return out;
+}
+function paintWall(cx,cy){
+  if(phase!=="play") return;
+  if(cx<0||cy<0||cx>=COLS||cy>=ROWS) return;
+  const idx=cy*COLS+cx;
+  if(owner[idx]!==0 || wall[idx] || cellNode[idx]>=0 || structAt.has(idx)) return;
+  if(players[0].influence < CONFIG.WALL_COST){ if(!wallWarned){ flash(`Need ${CONFIG.WALL_COST} influence`); wallWarned=true; } return; }
+  wall[idx]=1; players[0].influence -= CONFIG.WALL_COST;
+}
+function placeBuild(cx,cy,type){
+  if(phase!=="play") return;
+  if(cx<0||cy<0||cx>=COLS||cy>=ROWS){ flash("Place inside your territory"); return; }
+  const idx=cy*COLS+cx;
+  if(owner[idx]!==0){ flash("Must be your territory"); return; }
+  if(cellNode[idx]>=0 || wall[idx] || structAt.has(idx)){ flash("That spot is occupied"); return; }
+  const cost = type==="farm"?CONFIG.FARM_COST:CONFIG.OUTPOST_COST;
+  if(players[0].influence < cost){ flash(`Need ${cost} influence`); return; }
+  players[0].influence -= cost;
+  const b={cx,cy,type,owner:0,acc:0,alive:true}; builds.push(b); structAt.set(idx,b);
+  if(!reduceMotion) flashes.push({cx,cy,t:0,rgb:players[0].rgb,big:true});
+  flash(type==="farm"?"Farm built · +"+CONFIG.FARM_YIELD+"/"+CONFIG.FARM_PERIOD+"s":"Outpost built");
+}
+function outpostFire(b){
+  const own=b.owner; let placed=0, tries=0, cap=CONFIG.OUTPOST_SHOTS;
+  while(placed<cap && tries<cap*12){
+    tries++;
+    const ang=Math.random()*6.2832, rad=Math.sqrt(Math.random())*CONFIG.OUTPOST_RADIUS;
+    const cx=Math.round(b.cx+Math.cos(ang)*rad), cy=Math.round(b.cy+Math.sin(ang)*rad);
+    if(cx<0||cy<0||cx>=COLS||cy>=ROWS) continue;
+    const idx=cy*COLS+cx;
+    if(cellNode[idx]>=0) continue;
+    const prev=owner[idx];
+    if(prev===own) continue;
+    owner[idx]=own; defense[idx]=0; if(wall[idx]) wall[idx]=0;
+    if(prev>=0) players[prev].cells--; players[own].cells++;
+    const s=structAt.get(idx); if(s){ s.alive=false; structAt.delete(idx); }
+    placed++;
+  }
+  if(own===0 && !reduceMotion) flashes.push({cx:b.cx,cy:b.cy,t:0,rgb:players[0].rgb});
+}
+function spawnCellFree(cx,cy){
+  if(cx<0||cy<0||cx>=COLS||cy>=ROWS) return false;
+  const md=CONFIG.START_R+1;
+  for(const nd of nodes){ const dx=nd.cx-cx,dy=nd.cy-cy; if(dx*dx+dy*dy < md*md) return false; }
+  return true;
+}
+function assignSpawns(){
+  const margin=CONFIG.START_R+3;
+  const spawns=[];
+  const place=(sepv)=>{ spawns.length=0;
+    for(let i=0;i<players.length;i++){ let ok=false;
+      for(let t=0;t<500 && !ok;t++){
+        const cx=(rand(margin,COLS-margin))|0, cy=(rand(margin,ROWS-margin))|0;
+        if(!spawnCellFree(cx,cy)) continue;
+        let good=true; for(const s of spawns){ const dx=s.cx-cx,dy=s.cy-cy; if(dx*dx+dy*dy<sepv*sepv){ good=false; break; } }
+        if(good){ spawns.push({cx,cy}); ok=true; }
+      }
+      if(!ok) return false;
+    }
+    return true;
+  };
+  let sep=Math.max(CONFIG.START_R*2+2, Math.floor(Math.sqrt((COLS*ROWS)/players.length)*0.6));
+  while(sep>CONFIG.START_R*2 && !place(sep)) sep=Math.floor(sep*0.85);
+  if(spawns.length<players.length) place(CONFIG.START_R*2);
+  for(let i=0;i<players.length;i++) players[i]._spawn = spawns[i] || {cx:(rand(margin,COLS-margin))|0, cy:(rand(margin,ROWS-margin))|0};
+}
+function trySetSpawn(cx,cy){
+  if(phase!=="spawn") return;
+  if(cx<0||cy<0||cx>=COLS||cy>=ROWS){ flash("Pick a spot on the map"); return; }
+  if(!spawnCellFree(cx,cy)){ flash("Too close to a node"); return; }
+  const sep=CONFIG.START_R*2;
+  for(let i=1;i<players.length;i++){ const s=players[i]._spawn; const dx=s.cx-cx,dy=s.cy-cy; if(dx*dx+dy*dy<sep*sep){ flash("Too close to another spawn"); return; } }
+  players[0]._spawn={cx,cy}; players[0]._spawnSet=true; flash("Spawn set");
+}
+function beginPlay(){
+  players.forEach(pl=>{ const s=pl._spawn; const bi=nodes.length;
+    nodes.push({cx:s.cx,cy:s.cy,owner:pl.idx,base:true}); pl.nodeCount=1; pl.hasBase=true; pl.baseIdx=bi;
+    fillDisc(s.cx,s.cy,CONFIG.START_R,pl.idx); });
+  rebuildCellNode();
+  phase="play"; playStart=performance.now(); lastT=performance.now();
+  spawnHint.style.display="none"; setBuildMode(null); setBuildEnabled(true);
+}
+function newRound(){
+  clearGrid();
+  setBuildMode(null); setBuildEnabled(false);
+  players.forEach(pl=>{ pl.cells=0; pl.nodeCount=0; pl.alive=true; pl.influence=CONFIG.START_INFLUENCE; pl._next=0; pl.hasBase=false; pl.baseIdx=-1; pl._spawnSet=false; });
+  scatterNeutralNodes();
+  rebuildCellNode();
+  assignSpawns();
+  computeColors();
+  const h=players[0]._spawn;
   cam.zoom=CONFIG.ZOOM_START;
   cam.x=(h.cx+0.5)*CELL - (VIEW_W/cam.zoom)/2;
   cam.y=(h.cy+0.5)*CELL - (VIEW_H/cam.zoom)/2;
   clampCam();
   timeLeft=CONFIG.ROUND_SECONDS;
   buildScoreboard();
-  running=true; lastT=performance.now();
+  phase="spawn"; spawnLeft=CONFIG.SPAWN_SECONDS; running=true; lastT=performance.now();
+  spawnHint.style.display="";
 }
 
 function botTurn(pl, now){
@@ -347,10 +479,15 @@ function step(dt){
   const now=performance.now();
   for(const pl of players){ if(!pl.isHuman && pl.alive && now>=pl._next) botTurn(pl,now); }
 
+  for(const b of builds){ if(!b.alive) continue; b.acc+=dt;
+    if(b.type==="farm"){ if(b.acc>=CONFIG.FARM_PERIOD){ b.acc-=CONFIG.FARM_PERIOD; players[b.owner].influence+=CONFIG.FARM_YIELD; if(!reduceMotion) flashes.push({cx:b.cx,cy:b.cy,t:0,rgb:players[b.owner].rgb}); } }
+    else { if(b.acc>=CONFIG.OUTPOST_PERIOD){ b.acc-=CONFIG.OUTPOST_PERIOD; outpostFire(b); } } }
+
   for(const pl of players){ if(!pl.alive) continue;
     let inc=pl.nodeCount*CONFIG.INCOME_PER_NODE + pl.cells*CONFIG.INCOME_PER_CELL + CONFIG.TRICKLE;
     if(!pl.hasBase) inc*=(1-CONFIG.BASE_PENALTY);
-    pl.influence=Math.min(capOf(pl), pl.influence+inc*dt); }
+    const cap=capOf(pl);
+    if(pl.influence<cap) pl.influence=Math.min(cap, pl.influence+inc*dt); }
 
   for(const pl of players){ if(pl.alive && pl.cells<=0) pl.alive=false; }
 
@@ -363,11 +500,10 @@ function step(dt){
 
   for(let i=flashes.length-1;i>=0;i--){ flashes[i].t+=dt; if(flashes[i].t>0.6) flashes.splice(i,1); }
 
-  timeLeft-=dt;
   if(!players[0].alive){ endRound(topPlayer()); return; }
   const aliveP=players.filter(p=>p.alive);
   if(aliveP.length<=1){ endRound(aliveP[0]||null); return; }
-  if(timeLeft<=0){ timeLeft=0; endRound(topPlayer()); }
+  if(gameMode!=="royale"){ timeLeft-=dt; if(timeLeft<=0){ timeLeft=0; endRound(topPlayer()); } }
 }
 function topPlayer(){ let best=players[0]; for(const p of players) if(p.cells>best.cells) best=p; return best; }
 
@@ -386,14 +522,19 @@ function cellFromScreen(sx,sy){ const wx=cam.x+sx/cam.zoom, wy=cam.y+sy/cam.zoom
 display.addEventListener("pointerdown", e=>{
   e.preventDefault(); display.setPointerCapture(e.pointerId);
   const {sx,sy}=evScreen(e);
-  pointers.set(e.pointerId,{sx0:sx,sy0:sy,x:sx,y:sy,camX:cam.x,camY:cam.y,moved:false});
-  if(pointers.size>=2) pinchPrev=null;
+  const p={sx0:sx,sy0:sy,x:sx,y:sy,camX:cam.x,camY:cam.y,moved:false,paint:false,ctrl:e.ctrlKey};
+  pointers.set(e.pointerId,p);
+  if(pointers.size>=2){ pinchPrev=null; for(const q of pointers.values()) q.paint=false; }
+  else if(phase==="play" && (buildMode==="wall" || e.ctrlKey)){
+    p.paint=true; wallWarned=false; const cc=cellFromScreen(sx,sy); paintWall(cc.cx,cc.cy);
+  }
   display.classList.add("grabbing");
 });
 display.addEventListener("pointermove", e=>{
   const {sx,sy}=evScreen(e); const p=pointers.get(e.pointerId); if(p){ p.x=sx; p.y=sy; }
   lastCursorCell=cellFromScreen(sx,sy);
   if(pointers.size===1 && p){
+    if(p.paint){ p.moved=true; const cc=cellFromScreen(sx,sy); paintWall(cc.cx,cc.cy); return; }
     const dx=p.x-p.sx0, dy=p.y-p.sy0;
     if(!p.moved && Math.hypot(dx,dy)>8) p.moved=true;
     if(p.moved){ cam.x=p.camX-dx/cam.zoom; cam.y=p.camY-dy/cam.zoom; clampCam(); }
@@ -414,23 +555,30 @@ display.addEventListener("pointermove", e=>{
 function endPointer(e){
   const wasSingle = pointers.size===1;
   const p=pointers.get(e.pointerId);
-  if(p && wasSingle && !p.moved && running){
+  if(p && wasSingle && !p.moved){
     const {cx,cy}=cellFromScreen(p.x,p.y);
-    const me=players[0];
-    if(me.alive){
-      let handled=false;
-      if(!me.hasBase && cx>=0&&cy>=0&&cx<COLS&&cy<ROWS){
-        const ni=cellNode[cy*COLS+cx];
-        if(ni>=0 && nodes[ni].owner===0 && defense[cy*COLS+cx]>=CONFIG.DEF_MAX){
-          handled=true;
-          if(me.influence>=CONFIG.BASE_COST){ makeBase(ni,0); flash("New base established"); }
-          else flash(`Need ${CONFIG.BASE_COST} influence for a base`);
+    if(phase==="spawn"){ trySetSpawn(cx,cy); }
+    else if(phase==="play" && !p.paint){
+      const me=players[0];
+      if(me.alive){
+        if(buildMode==="farm"){ placeBuild(cx,cy,"farm"); }
+        else if(buildMode==="outpost"){ placeBuild(cx,cy,"outpost"); }
+        else {
+          let handled=false;
+          if(!me.hasBase && cx>=0&&cy>=0&&cx<COLS&&cy<ROWS){
+            const ni=cellNode[cy*COLS+cx];
+            if(ni>=0 && nodes[ni].owner===0 && defense[cy*COLS+cx]>=CONFIG.DEF_MAX){
+              handled=true;
+              if(me.influence>=CONFIG.BASE_COST){ makeBase(ni,0); flash("New base established"); }
+              else flash(`Need ${CONFIG.BASE_COST} influence for a base`);
+            }
+          }
+          if(!handled){
+            const budget=Math.ceil(me.influence*commitPct/100);
+            if(budget<1) flash("Not enough influence");
+            else { const got=expandToward(0,cx,cy,budget); if(got===0) flash("Can't push there yet"); }
+          }
         }
-      }
-      if(!handled){
-        const budget=Math.ceil(me.influence*commitPct/100);
-        if(budget<1) flash("Not enough influence");
-        else { const got=expandToward(0,cx,cy,budget); if(got===0) flash("Can't push there yet"); }
       }
     }
   }
@@ -462,14 +610,20 @@ function render(){
   const c0=Math.max(0,Math.floor(cam.x/CELL)), r0=Math.max(0,Math.floor(cam.y/CELL));
   const c1=Math.min(COLS-1,Math.ceil((cam.x+VIEW_W/cam.zoom)/CELL));
   const r1=Math.min(ROWS-1,Math.ceil((cam.y+VIEW_H/cam.zoom)/CELL));
+  const inset=cw*0.16, wsz=cw*0.68;
   for(let r=r0;r<=r1;r++){
     const base=r*COLS, sy=(r*CELL-cam.y)*cam.zoom;
     for(let c=c0;c<=c1;c++){
       const idx=base+c, ow=owner[idx]; if(ow<0) continue;
+      const sx=(c*CELL-cam.x)*cam.zoom;
       const dfn=defense[idx];
       const lvl=dfn<=0?0:Math.min(ENTRENCH_LEVELS-1,(dfn/CONFIG.DEF_MAX*(ENTRENCH_LEVELS-1))|0);
       ctx.fillStyle=playerShades[ow][lvl];
-      ctx.fillRect((c*CELL-cam.x)*cam.zoom, sy, cw+1, cw+1);
+      ctx.fillRect(sx, sy, cw+1, cw+1);
+      if(wall[idx]){
+        ctx.fillStyle="#cdd2db"; ctx.fillRect(sx+inset, sy+inset, wsz, wsz);
+        ctx.fillStyle="rgba(20,24,32,0.5)"; ctx.fillRect(sx+inset, sy+cw*0.47, wsz, Math.max(1,cw*0.08));
+      }
     }
   }
 
@@ -483,8 +637,25 @@ function render(){
     ctx.beginPath(); ctx.arc((wx-cam.x)*cam.zoom,(wy-cam.y)*cam.zoom,rad,0,Math.PI*2); ctx.stroke();
   }
 
+  const sg=Math.max(4,cw*0.5);
+  for(const b of builds){ if(!b.alive) continue;
+    const sx=((b.cx+0.5)*CELL-cam.x)*cam.zoom, sy=((b.cy+0.5)*CELL-cam.y)*cam.zoom;
+    if(sx<-20||sy<-20||sx>VIEW_W+20||sy>VIEW_H+20) continue;
+    if(b.type==="farm"){
+      ctx.fillStyle="#79c05a"; ctx.fillRect(sx-sg,sy-sg,sg*2,sg*2);
+      ctx.strokeStyle="rgba(255,255,255,0.92)"; ctx.lineWidth=2; ctx.strokeRect(sx-sg,sy-sg,sg*2,sg*2);
+      ctx.strokeStyle="rgba(20,40,20,0.55)"; ctx.lineWidth=Math.max(1,sg*0.22);
+      ctx.beginPath(); ctx.moveTo(sx-sg*0.5,sy-sg); ctx.lineTo(sx-sg*0.5,sy+sg); ctx.moveTo(sx+sg*0.5,sy-sg); ctx.lineTo(sx+sg*0.5,sy+sg); ctx.stroke();
+    } else {
+      ctx.fillStyle="#e08a3c"; ctx.beginPath();
+      ctx.moveTo(sx,sy-sg*1.15); ctx.lineTo(sx+sg,sy+sg*0.8); ctx.lineTo(sx-sg,sy+sg*0.8); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle="rgba(255,255,255,0.92)"; ctx.lineWidth=2; ctx.stroke();
+      ctx.fillStyle="rgba(255,255,255,0.92)"; ctx.beginPath(); ctx.arc(sx,sy+sg*0.15,sg*0.28,0,Math.PI*2); ctx.fill();
+    }
+  }
+
   const R=Math.max(4, cw*0.42);
-  const noBase=players[0] && !players[0].hasBase && running;
+  const noBase=players[0] && !players[0].hasBase && phase==="play";
   const tnow=performance.now();
   for(const nd of nodes){
     const sx=((nd.cx+0.5)*CELL-cam.x)*cam.zoom, sy=((nd.cy+0.5)*CELL-cam.y)*cam.zoom;
@@ -494,12 +665,10 @@ function render(){
       ctx.beginPath(); ctx.arc(sx,sy,R,0,Math.PI*2); ctx.stroke();
       ctx.fillStyle="rgba(231,233,238,0.22)"; ctx.beginPath(); ctx.arc(sx,sy,R*0.42,0,Math.PI*2); ctx.fill();
     } else if(nd.base){
-      const br=R*1.55;
-      ctx.strokeStyle=rgbStr(players[nd.owner].rgb,0.9); ctx.lineWidth=3;
-      ctx.beginPath(); ctx.arc(sx,sy,br,0,Math.PI*2); ctx.stroke();
-      ctx.fillStyle=rgbStr(players[nd.owner].rgb); ctx.beginPath(); ctx.arc(sx,sy,br*0.64,0,Math.PI*2); ctx.fill();
-      ctx.strokeStyle="rgba(255,255,255,0.95)"; ctx.lineWidth=2.5; ctx.beginPath(); ctx.arc(sx,sy,br*0.64,0,Math.PI*2); ctx.stroke();
-      ctx.fillStyle="rgba(255,255,255,0.95)"; ctx.beginPath(); ctx.arc(sx,sy,br*0.3,0,Math.PI*2); ctx.fill();
+      starPath(sx,sy,R*1.7,R*0.72,5,-Math.PI/2);
+      ctx.fillStyle=rgbStr(players[nd.owner].rgb); ctx.fill();
+      ctx.strokeStyle="rgba(255,255,255,0.95)"; ctx.lineWidth=2.5; ctx.stroke();
+      ctx.fillStyle="rgba(255,255,255,0.92)"; ctx.beginPath(); ctx.arc(sx,sy,R*0.3,0,Math.PI*2); ctx.fill();
     } else {
       ctx.fillStyle=rgbStr(players[nd.owner].rgb); ctx.beginPath(); ctx.arc(sx,sy,R,0,Math.PI*2); ctx.fill();
       ctx.strokeStyle="rgba(255,255,255,0.85)"; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(sx,sy,R,0,Math.PI*2); ctx.stroke();
@@ -512,10 +681,30 @@ function render(){
     }
   }
 
+  if(phase==="spawn"){
+    for(let i=0;i<players.length;i++){ const s=players[i]._spawn; if(!s) continue;
+      const sx=((s.cx+0.5)*CELL-cam.x)*cam.zoom, sy=((s.cy+0.5)*CELL-cam.y)*cam.zoom;
+      if(sx<-30||sy<-30||sx>VIEW_W+30||sy>VIEW_H+30) continue;
+      const col=players[i].rgb, rr=Math.max(5,cw*0.62);
+      if(i===0){
+        const pulse=reduceMotion?1:(0.6+0.4*Math.sin(tnow*0.006));
+        ctx.strokeStyle=rgbStr(col,0.5); ctx.lineWidth=2;
+        ctx.beginPath(); ctx.arc(sx,sy,CONFIG.START_R*CELL*cam.zoom,0,Math.PI*2); ctx.stroke();
+        starPath(sx,sy,rr*1.5*pulse,rr*0.62*pulse,5,-Math.PI/2);
+        ctx.fillStyle=rgbStr(col); ctx.fill();
+        ctx.strokeStyle="#fff"; ctx.lineWidth=2.5; ctx.stroke();
+      } else {
+        ctx.fillStyle=rgbStr(col,0.9); ctx.beginPath(); ctx.arc(sx,sy,rr,0,Math.PI*2); ctx.fill();
+        ctx.strokeStyle="rgba(255,255,255,0.8)"; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(sx,sy,rr,0,Math.PI*2); ctx.stroke();
+      }
+    }
+  }
+
   if(lastCursorCell && pointers.size===0){
     const {cx,cy}=lastCursorCell;
     if(cx>=0&&cy>=0&&cx<COLS&&cy<ROWS){
-      ctx.strokeStyle="rgba(231,233,238,0.5)"; ctx.lineWidth=1.5;
+      ctx.strokeStyle = buildMode ? rgbStr([207,122,63],0.85) : (phase==="spawn" ? rgbStr(players[0].rgb,0.8) : "rgba(231,233,238,0.5)");
+      ctx.lineWidth=1.5;
       ctx.strokeRect((cx*CELL-cam.x)*cam.zoom,(cy*CELL-cam.y)*cam.zoom,cw,cw);
     }
   }
@@ -538,23 +727,51 @@ function drawMinimap(){
   mctx.strokeRect(cam.x*scx, cam.y*scy, (VIEW_W/cam.zoom)*scx, (VIEW_H/cam.zoom)*scy);
 }
 
-let pills=[];
+let pills=[], compactSB=false, sbYou=null, sbAlive=null, sbTop=null;
 function buildScoreboard(){
   const sb=document.getElementById("scoreboard"); sb.innerHTML="";
-  pills=players.map(pl=>{ const el=document.createElement("div"); el.className="pill";
-    el.innerHTML=`<span class="chip" style="background:${rgbStr(pl.rgb)}"></span><span class="name">${escapeHTML(dispName(pl))}</span><span class="pct">0%</span>`;
-    sb.appendChild(el); return {el, pct:el.querySelector(".pct")}; });
+  compactSB = players.length>10;
+  if(!compactSB){
+    pills=players.map(pl=>{ const el=document.createElement("div"); el.className="pill";
+      el.innerHTML=`<span class="chip" style="background:${rgbStr(pl.rgb)}"></span><span class="name">${escapeHTML(dispName(pl))}</span><span class="pct">0%</span>`;
+      sb.appendChild(el); return {el, pct:el.querySelector(".pct")}; });
+  } else {
+    pills=[];
+    const el=document.createElement("div"); el.className="sbc";
+    el.innerHTML=`<span class="chip"></span><span class="sbk">You</span><span class="sbv" id="sbYou">0%</span><span class="sbsep">·</span><span class="sbk">Alive</span><span class="sbv" id="sbAlive">0</span><span class="sbsep">·</span><span class="sbk">Top</span><span class="sbv" id="sbTop">0%</span>`;
+    sb.appendChild(el);
+    el.querySelector(".chip").style.background=rgbStr(players[0].rgb);
+    sbYou=el.querySelector("#sbYou"); sbAlive=el.querySelector("#sbAlive"); sbTop=el.querySelector("#sbTop");
+  }
 }
 const clockEl=document.getElementById("clock"), infV=document.querySelector("#influence .v"),
       incV=document.getElementById("incomeV"), budgetV=document.getElementById("budgetV"),
-      cellInfo=document.getElementById("cellInfo"), baseInfo=document.getElementById("baseInfo");
+      cellInfo=document.getElementById("cellInfo"), baseInfo=document.getElementById("baseInfo"),
+      spawnHint=document.getElementById("spawnHint");
+function drawClock(){
+  if(gameMode==="royale"){ const el=Math.max(0,(performance.now()-playStart)/1000), m=Math.floor(el/60), s=Math.floor(el%60);
+    clockEl.textContent=`${m}:${s<10?"0":""}${s}`; clockEl.classList.remove("warn"); }
+  else { const m=Math.floor(timeLeft/60), s=Math.floor(timeLeft%60);
+    clockEl.textContent=`${m}:${s<10?"0":""}${s}`; clockEl.classList.toggle("warn",timeLeft<=20); }
+}
+function updateSpawnHUD(){
+  const n=Math.ceil(spawnLeft);
+  spawnHint.textContent = players[0]._spawnSet ? `Spawn set — starting in ${n}s (tap to move)` : `Choose your spawn — tap an empty spot · ${n}s`;
+  infV.textContent=`${Math.floor(players[0].influence)}`;
+  const m=Math.floor(spawnLeft/60), s=Math.floor(spawnLeft%60);
+  clockEl.textContent=`${m}:${s<10?"0":""}${s}`; clockEl.classList.toggle("warn",spawnLeft<=3);
+}
 function updateHUD(){
-  for(let i=0;i<players.length;i++){
-    pills[i].pct.textContent=Math.round(players[i].cells/N*100)+"%";
-    pills[i].el.classList.toggle("dead",!players[i].alive);
+  if(!compactSB){
+    for(let i=0;i<players.length;i++){
+      pills[i].pct.textContent=Math.round(players[i].cells/N*100)+"%";
+      pills[i].el.classList.toggle("dead",!players[i].alive);
+    }
+  } else {
+    let alive=0, top=0; for(const p of players){ if(p.alive)alive++; const pc=p.cells/N; if(pc>top)top=pc; }
+    sbYou.textContent=Math.round(players[0].cells/N*100)+"%"; sbAlive.textContent=alive; sbTop.textContent=Math.round(top*100)+"%";
   }
-  const m=Math.floor(timeLeft/60), s=Math.floor(timeLeft%60);
-  clockEl.textContent=`${m}:${s<10?"0":""}${s}`; clockEl.classList.toggle("warn",timeLeft<=20);
+  drawClock();
   const me=players[0];
   infV.textContent=`${Math.floor(me.influence)} / ${capOf(me)}`;
   let inc=me.nodeCount*CONFIG.INCOME_PER_NODE + me.cells*CONFIG.INCOME_PER_CELL + CONFIG.TRICKLE;
@@ -573,9 +790,9 @@ function updateHUD(){
     const {cx,cy}=lastCursorCell;
     if(cx>=0&&cy>=0&&cx<COLS&&cy<ROWS){
       const idx=cy*COLS+cx, ow=owner[idx], pen=supplyPenalty(cx,cy,0);
-      if(ow===0) cellInfo.textContent="your land";
+      if(ow===0) cellInfo.textContent = wall[idx]?"your wall":"your land";
       else if(ow<0) cellInfo.textContent=`empty · ${1+pen}/cell`;
-      else cellInfo.textContent=`enemy · ${enemyCost(idx)+pen}/cell`;
+      else cellInfo.textContent=`enemy · ${enemyCost(idx)+(wall[idx]?CONFIG.WALL_DESTROY:0)+pen}/cell`;
     } else cellInfo.textContent="";
   }
 }
@@ -600,46 +817,66 @@ function buildSetup(){
     b.setAttribute("aria-label","Colour "+p.name);
     b.onclick=()=>{ setupSel.color=i; setupSel.custom=null; [...sw.children].forEach(c=>c.classList.remove("sel")); b.classList.add("sel"); };
     sw.appendChild(b); });
+  const cwrap=document.createElement("span"); cwrap.className="customwrap"+(setupSel.custom!=null?" sel":""); cwrap.title="Custom colour (hex)";
   const cust=document.createElement("input"); cust.type="color"; cust.className="sw"; cust.id="customSw";
-  cust.value=setupSel.custom||"#d0876f"; cust.title="Custom colour";
-  if(setupSel.custom!=null) cust.classList.add("sel");
-  cust.addEventListener("input",()=>{ setupSel.custom=cust.value; [...sw.children].forEach(c=>c.classList.remove("sel")); cust.classList.add("sel"); });
-  sw.appendChild(cust);
+  cust.value=setupSel.custom||"#d0876f"; cust.setAttribute("aria-label","Custom colour");
+  cust.addEventListener("input",()=>{ setupSel.custom=cust.value; [...sw.children].forEach(c=>c.classList.remove("sel")); cwrap.classList.add("sel"); });
+  const pen=document.createElement("span"); pen.className="pen"; pen.textContent="✎";
+  cwrap.appendChild(cust); cwrap.appendChild(pen); sw.appendChild(cwrap);
+
   const op=document.getElementById("opps"); op.innerHTML="";
-  [1,2,3].forEach(n=>{ const b=document.createElement("button");
-    b.className="seg"+(n===setupSel.opponents?" sel":""); b.textContent=n;
-    b.onclick=()=>{ setupSel.opponents=n; [...op.children].forEach(c=>c.classList.toggle("sel",c.textContent==String(n))); };
-    op.appendChild(b); });
+  const num=document.createElement("input"); num.type="number"; num.id="oppIn"; num.className="numin";
+  num.min="1"; num.max="99"; num.step="1"; num.value=String(setupSel.opponents);
+  num.addEventListener("input",()=>{ let v=parseInt(num.value,10); if(isNaN(v))return; v=Math.max(1,Math.min(99,v)); setupSel.opponents=v; });
+  num.addEventListener("blur",()=>{ let v=parseInt(num.value,10); if(isNaN(v))v=1; v=Math.max(1,Math.min(99,v)); setupSel.opponents=v; num.value=String(v); });
+  op.appendChild(num);
+
+  const md=document.getElementById("mode"); md.innerHTML="";
+  [["timed","Timed"],["royale","Battle royale"]].forEach(([val,lab])=>{ const b=document.createElement("button");
+    b.className="seg"+(setupSel.mode===val?" sel":""); b.textContent=lab;
+    b.onclick=()=>{ setupSel.mode=val; [...md.children].forEach(c=>c.classList.remove("sel")); b.classList.add("sel"); };
+    md.appendChild(b); });
 }
 function showSetup(){
   oTitle.textContent="Influence";
-  oSub.innerHTML="Spend influence to claim land — it goes into cells one-for-one. <b>Tap toward where you want to grow</b> and the nearest cells turn your colour; slide <b>Commit</b> to set how much you spend per push. Empty land is cheap; an enemy cell costs more, and the longer they've held it the tougher it is — so hit fresh ground and weak seams, not dug-in cores. Your income comes from the <b>nodes</b> you capture, and your influence is capped, so pick your fights. Reaching far from your nodes costs extra. Guard your <b>base</b> — lose it and your income drops until you turn a fully dug-in node into a new one. Most ground when time runs out wins.<div style=\"margin-top:12px\"><a class=\"howto\" href=\"index.html\">How to play</a></div>";
+  oSub.innerHTML="Spend influence to claim land — it goes into cells one-for-one. Pick a spawn, then <b>tap toward where you want to grow</b>. Empty land is cheap; enemy land costs more the longer it's held. Capture <b>nodes</b> for income, guard your <b>base</b>, and spend influence on <b>walls, farms and outposts</b> from the bottom bar. Most ground when the clock runs out — or last one standing in battle royale.<div style=\"margin-top:12px\"><a class=\"howto\" href=\"index.html\">How to play</a></div>";
   oSetup.style.display=""; oStandings.innerHTML=""; oBtn.textContent="Start";
   overlay.classList.remove("hidden"); buildSetup();
 }
 function startFromSetup(){
-  const total=1+setupSel.opponents;
-  let humanRgb, botPool;
-  if(setupSel.custom!=null){ humanRgb=hexToRgb(setupSel.custom); botPool=PALETTE.slice(); }
-  else { humanRgb=PALETTE[setupSel.color].rgb; botPool=PALETTE.filter((_,i)=>i!==setupSel.color); }
+  const opp=Math.max(1,Math.min(99,setupSel.opponents||1));
+  const total=1+opp;
+  gameMode=setupSel.mode||"timed";
+  const usedPreset=setupSel.custom==null;
+  const humanRgb = usedPreset ? PALETTE[setupSel.color].rgb : hexToRgb(setupSel.custom);
+  const botDefs=makeBotColors(total-1, usedPreset);
   players=[];
   players.push({idx:0, name:(nameIn.value.trim()||"Player"), tag:(tagIn.value||""), rgb:humanRgb,
-    isHuman:true, influence:0, alive:true, cells:0, nodeCount:0, hasBase:true, baseIdx:-1, _next:0, _home:null});
-  for(let i=1;i<total;i++){ const b=botPool[i-1];
-    players.push({idx:i, name:b.name, tag:"", rgb:b.rgb,
-      isHuman:false, influence:0, alive:true, cells:0, nodeCount:0, hasBase:true, baseIdx:-1, _next:0, _home:null}); }
+    isHuman:true, influence:0, alive:true, cells:0, nodeCount:0, hasBase:false, baseIdx:-1, _next:0, _spawn:null, _spawnSet:false});
+  for(let i=1;i<total;i++){ const d=botDefs[i-1];
+    players.push({idx:i, name:d.name, tag:"", rgb:d.rgb,
+      isHuman:false, influence:0, alive:true, cells:0, nodeCount:0, hasBase:false, baseIdx:-1, _next:0, _spawn:null, _spawnSet:false}); }
   overlay.classList.add("hidden"); oSetup.style.display="none";
   commitPct=+pctEl.value;
   newRound();
 }
+const wallBtn=document.getElementById("wallBtn"), farmBtn=document.getElementById("farmBtn"), outBtn=document.getElementById("outBtn");
+function setBuildMode(m){ buildMode=m;
+  wallBtn.classList.toggle("on",m==="wall"); farmBtn.classList.toggle("on",m==="farm"); outBtn.classList.toggle("on",m==="outpost"); }
+function setBuildEnabled(on){ [wallBtn,farmBtn,outBtn].forEach(b=>{ b.disabled=!on; }); }
+wallBtn.addEventListener("click",()=>setBuildMode(buildMode==="wall"?null:"wall"));
+farmBtn.addEventListener("click",()=>setBuildMode(buildMode==="farm"?null:"farm"));
+outBtn.addEventListener("click",()=>setBuildMode(buildMode==="outpost"?null:"outpost"));
 function endRound(winner){
-  running=false;
+  running=false; phase="over"; spawnHint.style.display="none"; setBuildMode(null); setBuildEnabled(false);
   const ranked=[...players].sort((a,b)=>b.cells-a.cells);
-  if(winner&&winner.isHuman){ oTitle.textContent="You win"; oSub.textContent="Most ground held when the clock stopped."; }
+  if(winner&&winner.isHuman){ oTitle.textContent="You win"; oSub.textContent=gameMode==="royale"?"Last one standing.":"Most ground held when the clock stopped."; }
   else if(!players[0].alive){ oTitle.textContent="Eliminated"; oSub.textContent="All your territory was taken."; }
-  else { oTitle.textContent=(winner?winner.name+" wins":"Draw"); oSub.textContent="Better luck next round."; }
+  else { oTitle.textContent=(winner?dispName(winner)+" wins":"Draw"); oSub.textContent="Better luck next round."; }
   oSetup.style.display="none";
-  oStandings.innerHTML=ranked.map(p=>`<div class="row"><span class="chip" style="background:${rgbStr(p.rgb)}"></span><span class="nm">${escapeHTML(dispName(p))}</span><span class="vv">${Math.round(p.cells/N*100)}%</span></div>`).join("");
+  const top=ranked.slice(0,20);
+  oStandings.innerHTML=top.map(p=>`<div class="row"><span class="chip" style="background:${rgbStr(p.rgb)}"></span><span class="nm">${escapeHTML(dispName(p))}</span><span class="vv">${Math.round(p.cells/N*100)}%</span></div>`).join("")
+    + (ranked.length>20?`<div class="row"><span class="nm" style="opacity:.55">…and ${ranked.length-20} more</span></div>`:"");
   oBtn.textContent="Play again"; overlay.classList.remove("hidden");
 }
 oBtn.addEventListener("click",()=>{
@@ -648,18 +885,17 @@ oBtn.addEventListener("click",()=>{
 });
 
 function frame(now){
-  if(running){ let dt=(now-lastT)/1000; lastT=now; if(dt>0.1)dt=0.1; step(dt); updateHUD(); }
+  if(phase==="spawn"){ let dt=(now-lastT)/1000; lastT=now; if(dt>0.25)dt=0.25; spawnLeft-=dt; if(spawnLeft<=0){ spawnLeft=0; beginPlay(); } else updateSpawnHUD(); }
+  else if(phase==="play" && running){ let dt=(now-lastT)/1000; lastT=now; if(dt>0.1)dt=0.1; step(dt); updateHUD(); }
   render();
   requestAnimationFrame(frame);
 }
 
-players=[{idx:0,name:"Player",tag:"",rgb:PALETTE[0].rgb,isHuman:true,influence:0,alive:true,cells:0,nodeCount:0,hasBase:true,baseIdx:-1,_next:0,_home:null}];
-clearGrid(); scatterNeutralNodes();
-for(let i=0;i<nodes.length;i++){ const nd=nodes[i]; cellNode[nd.cy*COLS+nd.cx]=i; }
-playerColors=players.map(p=>rgbStr(p.rgb));
-playerShades=players.map(p=>{ const a=[]; for(let l=0;l<ENTRENCH_LEVELS;l++){ a.push(rgbStr(mix(p.rgb,[0,0,0],(l/(ENTRENCH_LEVELS-1))*CONFIG.ENTRENCH_SHADE))); } return a; });
+players=[{idx:0,name:"Player",tag:"",rgb:PALETTE[0].rgb,isHuman:true,influence:0,alive:true,cells:0,nodeCount:0,hasBase:false,baseIdx:-1,_next:0,_spawn:null,_spawnSet:false}];
+clearGrid(); scatterNeutralNodes(); rebuildCellNode(); computeColors();
 resize();
 cam.x=WORLD_W/2-(VIEW_W/cam.zoom)/2; cam.y=WORLD_H/2-(VIEW_H/cam.zoom)/2; clampCam();
+phase="over"; spawnHint.style.display="none"; setBuildEnabled(false);
 buildScoreboard(); showSetup();
 requestAnimationFrame(frame);
 </script>
