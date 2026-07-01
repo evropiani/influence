@@ -17,8 +17,11 @@ const CONFIG = {
   ENTRENCH_SHADE:0.38,
   BASE_COST:300, BASE_PENALTY:0.30,
   WALL_COST:20, WALL_DESTROY:15,
-  FARM_COST:500, FARM_PERIOD:30, FARM_YIELD:100,
-  OUTPOST_COST:300, OUTPOST_PERIOD:20, OUTPOST_SHOTS:30, OUTPOST_RADIUS:15,
+  FARM_COST:400, FARM_PERIOD:15, FARM_YIELD:120, CAP_PER_FARM:40,
+  OUTPOST_COST:300, OUTPOST_PERIOD:12, OUTPOST_SHOTS:40, OUTPOST_RADIUS:16,
+  OUTPOST_BEACHHEAD:2, OUTPOST_ERODE:2, OUTPOST_SUPPLY:true,
+  OBSTACLES:true, OBSTACLE_CLUSTERS:42, OBSTACLE_LEN_MIN:12, OBSTACLE_LEN_MAX:40,
+  OBSTACLE_THICK_MIN:1, OBSTACLE_THICK_MAX:2.6, OBSTACLE_NODE_GAP:3, OBSTACLE_INTERVAL:16,
   DEFAULT_PCT:50,
   ZOOM_MIN:0.28, ZOOM_MAX:1.7, ZOOM_START:0.7, PAN_KEY_SPEED:760,
   BOT_SKILL:0.6,
@@ -34,6 +37,7 @@ let VIEW_W=1000, VIEW_H=667;
 const COLS=CONFIG.COLS, ROWS=CONFIG.ROWS, CELL=CONFIG.CELL, N=COLS*ROWS;
 const WORLD_W=COLS*CELL, WORLD_H=ROWS*CELL;
 const BG="#1c2029";
+const ROCK=[70,77,94], ROCK_STR="rgb(70,77,94)", ROCK_TOP="rgb(90,98,116)";
 
 const display=document.getElementById("game"), ctx=display.getContext("2d");
 const stage=document.getElementById("stage");
@@ -68,10 +72,11 @@ let setupSel={color:0, opponents:3, custom:null, mode:"timed"};
 const keys=new Set();
 let lastCursorCell=null;
 const wall=new Uint8Array(N);
+const blocked=new Uint8Array(N);
 let builds=[];
 const structAt=new Map();
 let phase="over";
-let spawnLeft=0, playStart=0;
+let spawnLeft=0, playStart=0, obstacleTimer=0;
 let buildMode=null;
 let gameMode="timed";
 let wallWarned=false;
@@ -83,11 +88,12 @@ const mix=(a,b,t)=>[Math.round(a[0]+(b[0]-a[0])*t),Math.round(a[1]+(b[1]-a[1])*t
 const hexToRgb=h=>{h=h.replace('#','');return [parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];};
 const dispName=p=> p.tag ? `[${p.tag}] ${p.name}` : p.name;
 const ENTRENCH_LEVELS=5;
-const capOf=pl=>CONFIG.CAP_BASE + pl.nodeCount*CONFIG.CAP_PER_NODE;
+const capOf=pl=>CONFIG.CAP_BASE + pl.nodeCount*CONFIG.CAP_PER_NODE + (pl.farmCount||0)*CONFIG.CAP_PER_FARM;
 const enemyCost=idx=>CONFIG.ENEMY_BASE + Math.ceil(defense[idx]);
 function supplyPenalty(cx,cy,pIdx){
   let bd2=Infinity;
   for(const nd of nodes){ if(nd.owner!==pIdx) continue; const dx=nd.cx-cx,dy=nd.cy-cy,d2=dx*dx+dy*dy; if(d2<bd2)bd2=d2; }
+  if(CONFIG.OUTPOST_SUPPLY){ for(const b of builds){ if(!b.alive||b.type!=="outpost"||b.owner!==pIdx) continue; const dx=b.cx-cx,dy=b.cy-cy,d2=dx*dx+dy*dy; if(d2<bd2)bd2=d2; } }
   if(bd2===Infinity) return 0;
   const over=Math.sqrt(bd2)-CONFIG.SUPPLY_RANGE;
   return over<=0?0:Math.min(CONFIG.SUPPLY_MAX, Math.floor(over/CONFIG.SUPPLY_FALLOFF));
@@ -105,7 +111,7 @@ function hpop(){ const top=heap[0], last=heap.pop();
 function seedCandidate(c,r,tx,ty,pIdx){
   if(c<0||r<0||c>=COLS||r>=ROWS) return;
   const ni=r*COLS+c;
-  if(owner[ni]===pIdx || stamp[ni]===gen) return;
+  if(owner[ni]===pIdx || stamp[ni]===gen || blocked[ni]) return;
   stamp[ni]=gen;
   const dx=c-tx, dy=r-ty;
   hpush(dx*dx+dy*dy, ni);
@@ -132,7 +138,7 @@ function expandToward(pIdx, tx, ty, budgetCap){
     const prev=owner[idx];
     owner[idx]=pIdx; defense[idx]=0; if(wall[idx]) wall[idx]=0; budget-=cost; spent+=cost;
     players[pIdx].cells++; if(prev>=0) players[prev].cells--;
-    const s=structAt.get(idx); if(s){ s.alive=false; structAt.delete(idx); }
+    const s=structAt.get(idx); if(s){ s.alive=false; structAt.delete(idx); if(s.type==="farm") players[s.owner].farmCount--; }
     const nIdx=cellNode[idx]; if(nIdx>=0) captureNode(nIdx,pIdx);
     seedCandidate(c-1,r,tx,ty,pIdx); seedCandidate(c+1,r,tx,ty,pIdx);
     seedCandidate(c,r-1,tx,ty,pIdx); seedCandidate(c,r+1,tx,ty,pIdx);
@@ -162,23 +168,64 @@ function makeBase(nIdx, pIdx){
   return true;
 }
 
-function clearGrid(){ owner.fill(-1); cellNode.fill(-1); stamp.fill(0); defense.fill(0); wall.fill(0); gen=0; nodes=[]; flashes=[]; builds=[]; structAt.clear(); }
+function clearGrid(){ owner.fill(-1); cellNode.fill(-1); stamp.fill(0); defense.fill(0); wall.fill(0); blocked.fill(0); gen=0; nodes=[]; flashes=[]; builds=[]; structAt.clear(); }
 function farFromNodes(cx,cy,minD){ for(const nd of nodes){ const dx=nd.cx-cx,dy=nd.cy-cy; if(dx*dx+dy*dy<minD*minD) return false; } return true; }
 function scatterNeutralNodes(){
   let guard=0;
   while(nodes.filter(n=>n.owner<0).length < CONFIG.NODE_COUNT && guard < CONFIG.NODE_COUNT*80){
     guard++;
     const cx=(rand(3,COLS-3))|0, cy=(rand(3,ROWS-3))|0;
-    if(owner[cy*COLS+cx]!==-1) continue;
+    if(owner[cy*COLS+cx]!==-1 || blocked[cy*COLS+cx]) continue;
     if(!farFromNodes(cx,cy,CONFIG.NODE_SPACING)) continue;
     nodes.push({cx,cy,owner:-1});
+  }
+}
+// Impassable rock barriers: they block expansion (routes flow around them) and can't be owned,
+// so players can't cheaply snipe straight across the map at a distant node or rival.
+function stampObstacle(cx,cy,r){
+  const rr=Math.max(1,r|0);
+  for(let dr=-rr;dr<=rr;dr++) for(let dc=-rr;dc<=rr;dc++){
+    if(dc*dc+dr*dr>rr*rr) continue;
+    const c=cx+dc, ry=cy+dr;
+    if(c<1||ry<1||c>=COLS-1||ry>=ROWS-1) continue;
+    const i=ry*COLS+c;
+    if(owner[i]!==-1) continue;                                  // never overwrite claimed land
+    if(cellNode[i]>=0) continue;                                 // never bury a node
+    if(!farFromNodes(c,ry,CONFIG.OBSTACLE_NODE_GAP)) continue;   // keep nodes reachable
+    blocked[i]=1;
+  }
+}
+function drawBarrier(cx,cy){
+  const len=(rand(CONFIG.OBSTACLE_LEN_MIN,CONFIG.OBSTACLE_LEN_MAX))|0;
+  const thick=rand(CONFIG.OBSTACLE_THICK_MIN,CONFIG.OBSTACLE_THICK_MAX);
+  let x=cx, y=cy, ang=rand(0,Math.PI*2);
+  for(let s=0;s<len;s++){
+    stampObstacle(Math.round(x),Math.round(y),Math.round(thick));
+    if(Math.random()<0.25) ang+=rand(-0.6,0.6);                  // gentle wander so barriers curve
+    x+=Math.cos(ang); y+=Math.sin(ang);
+    if(x<2||y<2||x>=COLS-2||y>=ROWS-2) break;
+  }
+}
+function scatterObstacles(){
+  if(!CONFIG.OBSTACLES) return;
+  for(let k=0;k<CONFIG.OBSTACLE_CLUSTERS;k++) drawBarrier(rand(6,COLS-6), rand(6,ROWS-6));
+}
+function spawnDynamicObstacle(){
+  if(!CONFIG.OBSTACLES) return;
+  for(let t=0;t<24;t++){
+    const cx=(rand(6,COLS-6))|0, cy=(rand(6,ROWS-6))|0, i=cy*COLS+cx;
+    if(owner[i]!==-1 || blocked[i] || cellNode[i]>=0) continue;  // only sprout on open ground
+    if(!farFromNodes(cx,cy,CONFIG.OBSTACLE_NODE_GAP+1)) continue;
+    drawBarrier(cx,cy);
+    if(!reduceMotion) flashes.push({cx,cy,t:0,rgb:[130,138,155],big:true});
+    return;
   }
 }
 function fillDisc(cx,cy,R,pIdx){
   for(let dr=-R;dr<=R;dr++) for(let dc=-R;dc<=R;dc++){
     if(dc*dc+dr*dr>R*R) continue;
     const c=cx+dc, r=cy+dr; if(c<0||r<0||c>=COLS||r>=ROWS) continue;
-    const i=r*COLS+c; if(owner[i]!==-1) continue;
+    const i=r*COLS+c; if(owner[i]!==-1||blocked[i]) continue;
     owner[i]=pIdx; players[pIdx].cells++;
   }
 }
@@ -221,29 +268,38 @@ function placeBuild(cx,cy,type){
   if(players[0].influence < cost){ flash(`Need ${cost} influence`); return; }
   players[0].influence -= cost;
   const b={cx,cy,type,owner:0,acc:0,alive:true}; builds.push(b); structAt.set(idx,b);
+  if(type==="farm") players[0].farmCount++;
   if(!reduceMotion) flashes.push({cx,cy,t:0,rgb:players[0].rgb,big:true});
-  flash(type==="farm"?"Farm built · +"+CONFIG.FARM_YIELD+"/"+CONFIG.FARM_PERIOD+"s":"Outpost built");
+  flash(type==="farm"?"Farm built · +"+CONFIG.FARM_YIELD+"/"+CONFIG.FARM_PERIOD+"s":"Outpost built · forward supply");
 }
+function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=(Math.random()*(i+1))|0, t=a[i]; a[i]=a[j]; a[j]=t; } }
 function outpostFire(b){
-  const own=b.owner; let placed=0, tries=0, cap=CONFIG.OUTPOST_SHOTS;
-  while(placed<cap && tries<cap*12){
-    tries++;
-    const ang=Math.random()*6.2832, rad=Math.sqrt(Math.random())*CONFIG.OUTPOST_RADIUS;
-    const cx=Math.round(b.cx+Math.cos(ang)*rad), cy=Math.round(b.cy+Math.sin(ang)*rad);
+  const own=b.owner, R=CONFIG.OUTPOST_RADIUS, R2=R*R;
+  const enemyCells=[], emptyCells=[];
+  for(let dy=-R;dy<=R;dy++) for(let dx=-R;dx<=R;dx++){
+    if(dx*dx+dy*dy>R2) continue;
+    const cx=b.cx+dx, cy=b.cy+dy;
     if(cx<0||cy<0||cx>=COLS||cy>=ROWS) continue;
     const idx=cy*COLS+cx;
-    if(cellNode[idx]>=0) continue;
+    if(blocked[idx]||cellNode[idx]>=0) continue;
     const prev=owner[idx];
     if(prev===own) continue;
-    owner[idx]=own; defense[idx]=0; if(wall[idx]) wall[idx]=0;
-    if(prev>=0) players[prev].cells--; players[own].cells++;
-    const s=structAt.get(idx); if(s){ s.alive=false; structAt.delete(idx); }
-    placed++;
+    (prev>=0?enemyCells:emptyCells).push(idx);
   }
+  shuffle(enemyCells); shuffle(emptyCells);
+  const claim=idx=>{ const prev=owner[idx];
+    owner[idx]=own; defense[idx]=CONFIG.OUTPOST_BEACHHEAD; if(wall[idx]) wall[idx]=0;
+    if(prev>=0) players[prev].cells--; players[own].cells++;
+    const s=structAt.get(idx); if(s){ s.alive=false; structAt.delete(idx); if(s.type==="farm") players[s.owner].farmCount--; } };
+  let shots=CONFIG.OUTPOST_SHOTS, i=0;
+  for(; i<enemyCells.length && shots>0; i++){ claim(enemyCells[i]); shots--; }   // eat into enemies first
+  for(let j=0; j<emptyCells.length && shots>0; j++){ claim(emptyCells[j]); shots--; }
+  for(; i<enemyCells.length; i++){ const idx=enemyCells[i]; if(defense[idx]>0) defense[idx]=Math.max(0,defense[idx]-CONFIG.OUTPOST_ERODE); } // soften the rest
   if(own===0 && !reduceMotion) flashes.push({cx:b.cx,cy:b.cy,t:0,rgb:players[0].rgb});
 }
 function spawnCellFree(cx,cy){
   if(cx<0||cy<0||cx>=COLS||cy>=ROWS) return false;
+  if(blocked[cy*COLS+cx]) return false;
   const md=CONFIG.START_R+1;
   for(const nd of nodes){ const dx=nd.cx-cx,dy=nd.cy-cy; if(dx*dx+dy*dy < md*md) return false; }
   return true;
@@ -279,6 +335,7 @@ function trySetSpawn(cx,cy){
 }
 function beginPlay(){
   players.forEach(pl=>{ const s=pl._spawn; const bi=nodes.length;
+    blocked[s.cy*COLS+s.cx]=0;                                    // never let a barrier sit on a base
     nodes.push({cx:s.cx,cy:s.cy,owner:pl.idx,base:true}); pl.nodeCount=1; pl.hasBase=true; pl.baseIdx=bi;
     fillDisc(s.cx,s.cy,CONFIG.START_R,pl.idx); });
   rebuildCellNode();
@@ -288,9 +345,11 @@ function beginPlay(){
 function newRound(){
   clearGrid();
   setBuildMode(null); setBuildEnabled(false);
-  players.forEach(pl=>{ pl.cells=0; pl.nodeCount=0; pl.alive=true; pl.influence=CONFIG.START_INFLUENCE; pl._next=0; pl.hasBase=false; pl.baseIdx=-1; pl._spawnSet=false; });
+  players.forEach(pl=>{ pl.cells=0; pl.nodeCount=0; pl.farmCount=0; pl.alive=true; pl.influence=CONFIG.START_INFLUENCE; pl._next=0; pl.hasBase=false; pl.baseIdx=-1; pl._spawnSet=false; });
   scatterNeutralNodes();
   rebuildCellNode();
+  scatterObstacles();
+  obstacleTimer=CONFIG.OBSTACLE_INTERVAL;
   assignSpawns();
   computeColors();
   const h=players[0]._spawn;
@@ -330,6 +389,8 @@ function step(dt){
   for(const b of builds){ if(!b.alive) continue; b.acc+=dt;
     if(b.type==="farm"){ if(b.acc>=CONFIG.FARM_PERIOD){ b.acc-=CONFIG.FARM_PERIOD; players[b.owner].influence+=CONFIG.FARM_YIELD; if(!reduceMotion) flashes.push({cx:b.cx,cy:b.cy,t:0,rgb:players[b.owner].rgb}); } }
     else { if(b.acc>=CONFIG.OUTPOST_PERIOD){ b.acc-=CONFIG.OUTPOST_PERIOD; outpostFire(b); } } }
+
+  if(CONFIG.OBSTACLES){ obstacleTimer-=dt; if(obstacleTimer<=0){ obstacleTimer=CONFIG.OBSTACLE_INTERVAL; spawnDynamicObstacle(); } }
 
   for(const pl of players){ if(!pl.alive) continue;
     let inc=pl.nodeCount*CONFIG.INCOME_PER_NODE + pl.cells*CONFIG.INCOME_PER_CELL + CONFIG.TRICKLE;
@@ -462,7 +523,15 @@ function render(){
   for(let r=r0;r<=r1;r++){
     const base=r*COLS, sy=(r*CELL-cam.y)*cam.zoom;
     for(let c=c0;c<=c1;c++){
-      const idx=base+c, ow=owner[idx]; if(ow<0) continue;
+      const idx=base+c, ow=owner[idx];
+      if(ow<0){
+        if(blocked[idx]){
+          const sx=(c*CELL-cam.x)*cam.zoom;
+          ctx.fillStyle=ROCK_STR; ctx.fillRect(sx, sy, cw+1, cw+1);
+          if(cw>=5){ ctx.fillStyle=ROCK_TOP; ctx.fillRect(sx, sy, cw+1, Math.max(1,cw*0.18)); } // top-light edge for a solid, blocky read
+        }
+        continue;
+      }
       const sx=(c*CELL-cam.x)*cam.zoom;
       const dfn=defense[idx];
       const lvl=dfn<=0?0:Math.min(ENTRENCH_LEVELS-1,(dfn/CONFIG.DEF_MAX*(ENTRENCH_LEVELS-1))|0);
@@ -565,7 +634,7 @@ function drawMinimap(){
     const cy=Math.min(ROWS-1,(my/mm.height*ROWS)|0), row=cy*COLS;
     for(let mx=0;mx<mm.width;mx++){
       const cx=Math.min(COLS-1,(mx/mm.width*COLS)|0);
-      const ow=owner[row+cx]; const col=ow<0?[36,42,54]:players[ow].rgb;
+      const ci=row+cx, ow=owner[ci]; const col=ow<0?(blocked[ci]?ROCK:[36,42,54]):players[ow].rgb;
       const k=(my*mm.width+mx)*4; d[k]=col[0];d[k+1]=col[1];d[k+2]=col[2];d[k+3]=255;
     }
   }
@@ -638,7 +707,8 @@ function updateHUD(){
     const {cx,cy}=lastCursorCell;
     if(cx>=0&&cy>=0&&cx<COLS&&cy<ROWS){
       const idx=cy*COLS+cx, ow=owner[idx], pen=supplyPenalty(cx,cy,0);
-      if(ow===0) cellInfo.textContent = wall[idx]?"your wall":"your land";
+      if(blocked[idx]) cellInfo.textContent="barrier · impassable";
+      else if(ow===0) cellInfo.textContent = wall[idx]?"your wall":"your land";
       else if(ow<0) cellInfo.textContent=`empty · ${1+pen}/cell`;
       else cellInfo.textContent=`enemy · ${enemyCost(idx)+(wall[idx]?CONFIG.WALL_DESTROY:0)+pen}/cell`;
     } else cellInfo.textContent="";
@@ -700,10 +770,10 @@ function startFromSetup(){
   const botDefs=makeBotColors(total-1, usedPreset);
   players=[];
   players.push({idx:0, name:(nameIn.value.trim()||"Player"), tag:(tagIn.value||""), rgb:humanRgb,
-    isHuman:true, influence:0, alive:true, cells:0, nodeCount:0, hasBase:false, baseIdx:-1, _next:0, _spawn:null, _spawnSet:false});
+    isHuman:true, influence:0, alive:true, cells:0, nodeCount:0, farmCount:0, hasBase:false, baseIdx:-1, _next:0, _spawn:null, _spawnSet:false});
   for(let i=1;i<total;i++){ const d=botDefs[i-1];
     players.push({idx:i, name:d.name, tag:"", rgb:d.rgb,
-      isHuman:false, influence:0, alive:true, cells:0, nodeCount:0, hasBase:false, baseIdx:-1, _next:0, _spawn:null, _spawnSet:false}); }
+      isHuman:false, influence:0, alive:true, cells:0, nodeCount:0, farmCount:0, hasBase:false, baseIdx:-1, _next:0, _spawn:null, _spawnSet:false}); }
   overlay.classList.add("hidden"); oSetup.style.display="none";
   commitPct=+pctEl.value;
   newRound();
@@ -739,7 +809,7 @@ function frame(now){
   requestAnimationFrame(frame);
 }
 
-players=[{idx:0,name:"Player",tag:"",rgb:PALETTE[0].rgb,isHuman:true,influence:0,alive:true,cells:0,nodeCount:0,hasBase:false,baseIdx:-1,_next:0,_spawn:null,_spawnSet:false}];
+players=[{idx:0,name:"Player",tag:"",rgb:PALETTE[0].rgb,isHuman:true,influence:0,alive:true,cells:0,nodeCount:0,farmCount:0,hasBase:false,baseIdx:-1,_next:0,_spawn:null,_spawnSet:false}];
 clearGrid(); scatterNeutralNodes(); rebuildCellNode(); computeColors();
 resize();
 cam.x=WORLD_W/2-(VIEW_W/cam.zoom)/2; cam.y=WORLD_H/2-(VIEW_H/cam.zoom)/2; clampCam();

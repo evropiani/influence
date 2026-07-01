@@ -15,13 +15,15 @@ Capture **nodes** scattered across the map for income, a bigger influence cap, a
 Spend influence on structures inside your own territory:
 
 - **Walls** — 20 influence per cell. Hold `Ctrl` and click (or toggle the Wall button on mobile) to paint them. Enemies pay an extra 15 to break through.
-- **Farms** — 500 influence, pay out +100 influence every 30 seconds.
-- **Outposts** — 300 influence, splash your colour onto 30 random cells in a radius every 20 seconds — including enemy land.
+- **Farms** — 400 influence, pay out +120 influence every 15 seconds and raise your influence cap.
+- **Outposts** — 300 influence. Every 12 seconds they claim up to 40 cells around them, favouring enemy land, leaving a defended beachhead, and softening nearby enemy entrenchment. They also act as a forward supply point you can expand cheaply from.
 
 ### Modes
 
 - **Timed** — most territory when the clock runs out wins.
 - **Battle royale** — no timer, last one standing wins.
+
+The map is carved up by impassable **rock barriers** — expansion routes around them, so you can't snipe straight across open ground at a distant node or rival. Fresh barriers also form during the round, so choke points shift over time.
 
 Each round opens with a short **spawn phase** where you pick your starting location before the map goes live.
 
