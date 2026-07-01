@@ -416,9 +416,10 @@ function assignSpawns(){
     }
     return true;
   };
-  let sep=Math.max(CONFIG.START_R*2+2, Math.floor(Math.sqrt((COLS*ROWS)/players.length)*0.6));
-  while(sep>CONFIG.START_R*2 && !place(sep)) sep=Math.floor(sep*0.85);
-  if(spawns.length<players.length) place(CONFIG.START_R*2);
+  // Only enforce a minimum safe separation (starting discs shouldn't overlap) so spawns stay
+  // genuinely scattered and vary between rounds, rather than being pushed maximally apart.
+  const minSep=CONFIG.START_R*2+2;
+  if(!place(minSep)) place(CONFIG.START_R*2);
   for(let i=0;i<players.length;i++) players[i]._spawn = spawns[i] || {cx:(rand(margin,COLS-margin))|0, cy:(rand(margin,ROWS-margin))|0};
 }
 function trySetSpawn(cx,cy){
