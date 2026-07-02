@@ -17,11 +17,13 @@ Spend influence on structures inside your own territory:
 - **Walls** — 20 influence per cell. Hold `Ctrl` and click (or toggle the Wall button on mobile) to paint them. Enemies pay an extra 15 to break through.
 - **Farms** — 400 influence, pay out +120 influence every 15 seconds and raise your influence cap.
 - **Outposts** — 300 influence. Every 12 seconds they claim up to 40 cells around them, favouring enemy land, leaving a defended beachhead, and softening nearby enemy entrenchment. They also act as a forward supply point you can expand cheaply from.
+- **Bombard** — 250 influence. An aimed strike (on a cooldown) that blasts a neutral crater out of enemy territory anywhere within your supply range, stripping their cells, entrenchment and structures. Outposts extend its reach.
 
-### Modes
+### Modes & difficulty
 
 - **Timed** — most territory when the clock runs out wins.
 - **Battle royale** — no timer, last one standing wins.
+- **Difficulty** — pick **Easy**, **Normal**, or **Hard** on the start screen. Harder bots act faster, commit more influence, press the attack, and build farms and outposts of their own.
 
 The map is carved up by impassable **rock barriers** — expansion routes around them, so you can't snipe straight across open ground at a distant node or rival. Fresh barriers also form during the round, so choke points shift over time.
 

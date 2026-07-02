@@ -20,12 +20,22 @@ const CONFIG = {
   FARM_COST:400, FARM_PERIOD:15, FARM_YIELD:120, CAP_PER_FARM:40,
   OUTPOST_COST:300, OUTPOST_PERIOD:12, OUTPOST_SHOTS:40, OUTPOST_RADIUS:16,
   OUTPOST_BEACHHEAD:2, OUTPOST_ERODE:2, OUTPOST_SUPPLY:true,
+  BOMBARD_COST:250, BOMBARD_RADIUS:6, BOMBARD_COOLDOWN:25,
   OBSTACLES:true, OBSTACLE_CLUSTERS:42, OBSTACLE_LEN_MIN:12, OBSTACLE_LEN_MAX:40,
   OBSTACLE_THICK_MIN:1, OBSTACLE_THICK_MAX:2.6, OBSTACLE_NODE_GAP:3, OBSTACLE_INTERVAL:16,
   DEFAULT_PCT:50,
   ZOOM_MIN:0.28, ZOOM_MAX:1.7, ZOOM_START:0.7, PAN_KEY_SPEED:760,
   BOT_SKILL:0.6,
 };
+
+// Bot behaviour profiles per difficulty. skill drives budget/aggression; build enables farms/outposts;
+// delay is the seconds between a bot's moves (lower = faster/harder).
+const DIFFS = {
+  easy:   { skill:0.32, build:false, farmChance:0,    outChance:0,    maxFarms:0, delay:[1.8,2.8] },
+  normal: { skill:0.60, build:true,  farmChance:0.10, outChance:0.05, maxFarms:2, delay:[1.2,2.0] },
+  hard:   { skill:0.86, build:true,  farmChance:0.24, outChance:0.15, maxFarms:4, delay:[0.8,1.4] },
+};
+let botCfg = DIFFS.normal;
 
 const PALETTE = [
   { name:"Clay",  rgb:[192,86,75] }, { name:"Teal",  rgb:[58,143,134] },
@@ -68,7 +78,7 @@ let cam={x:0,y:0,zoom:CONFIG.ZOOM_START};
 let running=false, timeLeft=0, lastT=0;
 let commitPct=CONFIG.DEFAULT_PCT;
 let flashes=[];
-let setupSel={color:0, opponents:3, custom:null, mode:"timed"};
+let setupSel={color:0, opponents:3, custom:null, mode:"timed", difficulty:"normal"};
 const keys=new Set();
 let lastCursorCell=null;
 const wall=new Uint8Array(N);
@@ -76,7 +86,7 @@ const blocked=new Uint8Array(N);
 let builds=[];
 const structAt=new Map();
 let phase="over";
-let spawnLeft=0, playStart=0, obstacleTimer=0;
+let spawnLeft=0, playStart=0, obstacleTimer=0, bombardCd=0;
 let buildMode=null;
 let gameMode="timed";
 let wallWarned=false;
@@ -297,6 +307,32 @@ function outpostFire(b){
   for(; i<enemyCells.length; i++){ const idx=enemyCells[i]; if(defense[idx]>0) defense[idx]=Math.max(0,defense[idx]-CONFIG.OUTPOST_ERODE); } // soften the rest
   if(own===0 && !reduceMotion) flashes.push({cx:b.cx,cy:b.cy,t:0,rgb:players[0].rgb});
 }
+// Bombard: an aimed strike that blasts a neutral crater out of RIVAL territory within your supply
+// reach — strips their cells, entrenchment and structures so you can pour into the gap. On cooldown.
+function bombard(cx,cy,own){
+  const R=CONFIG.BOMBARD_RADIUS, R2=R*R;
+  for(let dy=-R;dy<=R;dy++) for(let dx=-R;dx<=R;dx++){
+    if(dx*dx+dy*dy>R2) continue;
+    const c=cx+dx, r=cy+dy; if(c<0||r<0||c>=COLS||r>=ROWS) continue;
+    const idx=r*COLS+c;
+    const prev=owner[idx];
+    if(prev<0 || prev===own || blocked[idx] || cellNode[idx]>=0) continue;   // only rival land, spare nodes
+    owner[idx]=-1; defense[idx]=0; if(wall[idx]) wall[idx]=0;
+    players[prev].cells--;
+    const s=structAt.get(idx); if(s){ s.alive=false; structAt.delete(idx); if(s.type==="farm"&&players[s.owner]) players[s.owner].farmCount--; }
+  }
+  if(!reduceMotion){ flashes.push({cx,cy,t:0,rgb:[224,138,60],big:true}); flashes.push({cx,cy,t:0,rgb:[224,138,60]}); }
+}
+function tryBombard(cx,cy){
+  if(phase!=="play") return;
+  const me=players[0]; if(!me.alive) return;
+  if(cx<0||cy<0||cx>=COLS||cy>=ROWS){ flash("Aim on the map"); return; }
+  if(bombardCd>0){ flash(`Bombard recharging · ${Math.ceil(bombardCd)}s`); return; }
+  if(me.influence<CONFIG.BOMBARD_COST){ flash(`Need ${CONFIG.BOMBARD_COST} influence`); return; }
+  if(supplyPenalty(cx,cy,0)>0){ flash("Target out of supply range"); return; }
+  me.influence-=CONFIG.BOMBARD_COST; bombardCd=CONFIG.BOMBARD_COOLDOWN;
+  bombard(cx,cy,0); flash("Bombard away!");
+}
 function spawnCellFree(cx,cy){
   if(cx<0||cy<0||cx>=COLS||cy>=ROWS) return false;
   if(blocked[cy*COLS+cx]) return false;
@@ -349,7 +385,7 @@ function newRound(){
   scatterNeutralNodes();
   rebuildCellNode();
   scatterObstacles();
-  obstacleTimer=CONFIG.OBSTACLE_INTERVAL;
+  obstacleTimer=CONFIG.OBSTACLE_INTERVAL; bombardCd=0;
   assignSpawns();
   computeColors();
   const h=players[0]._spawn;
@@ -363,21 +399,57 @@ function newRound(){
   spawnHint.style.display="";
 }
 
+const botDelay=()=>{ const d=botCfg.delay; return (d[0]+Math.random()*(d[1]-d[0]))*1000; };
+// Drop a farm or outpost on one of the bot's own cells. farm -> quiet interior; outpost -> a frontier
+// cell touching non-owned ground, so it projects supply and pressure toward enemies.
+function botPlaceBuild(pl, type, frontier){
+  const cost = type==="farm"?CONFIG.FARM_COST:CONFIG.OUTPOST_COST;
+  if(pl.influence<cost) return false;
+  const anchors=nodes.filter(n=>n.owner===pl.idx);   // search near owned nodes, not the whole map
+  if(!anchors.length) return false;
+  for(let t=0;t<80;t++){
+    const a=anchors[(Math.random()*anchors.length)|0];
+    const c=a.cx+((rand(-7,7))|0), r=a.cy+((rand(-7,7))|0);
+    if(c<0||r<0||c>=COLS||r>=ROWS) continue;
+    const idx=r*COLS+c;
+    if(owner[idx]!==pl.idx || cellNode[idx]>=0 || wall[idx] || blocked[idx] || structAt.has(idx)) continue;
+    if(frontier){
+      const touchesFront =
+        (c>0        && owner[idx-1]!==pl.idx && !blocked[idx-1]) ||
+        (c<COLS-1   && owner[idx+1]!==pl.idx && !blocked[idx+1]) ||
+        (r>0        && owner[idx-COLS]!==pl.idx && !blocked[idx-COLS]) ||
+        (r<ROWS-1   && owner[idx+COLS]!==pl.idx && !blocked[idx+COLS]);
+      if(!touchesFront) continue;
+    }
+    pl.influence-=cost;
+    const b={cx:c,cy:r,type,owner:pl.idx,acc:0,alive:true}; builds.push(b); structAt.set(idx,b);
+    if(type==="farm") pl.farmCount++;
+    return true;
+  }
+  return false;
+}
 function botTurn(pl, now){
-  const skill=CONFIG.BOT_SKILL;
+  const skill=botCfg.skill;
   if(!pl.hasBase && pl.influence>=CONFIG.BASE_COST){
     for(let ni=0;ni<nodes.length;ni++){ const nd=nodes[ni];
-      if(nd.owner===pl.idx && defense[nd.cy*COLS+nd.cx]>=CONFIG.DEF_MAX){ makeBase(ni,pl.idx); pl._next=now+(1.9-skill+rand(0,0.5))*1000; return; } }
+      if(nd.owner===pl.idx && defense[nd.cy*COLS+nd.cx]>=CONFIG.DEF_MAX){ makeBase(ni,pl.idx); pl._next=now+botDelay(); return; } }
+  }
+  if(botCfg.build && pl.hasBase){
+    if(pl.farmCount<botCfg.maxFarms && pl.influence>=CONFIG.FARM_COST*1.3 && Math.random()<botCfg.farmChance){
+      if(botPlaceBuild(pl,"farm",false)){ pl._next=now+botDelay(); return; } }
+    else if(pl.influence>=CONFIG.OUTPOST_COST*1.4 && Math.random()<botCfg.outChance){
+      if(botPlaceBuild(pl,"outpost",true)){ pl._next=now+botDelay(); return; } }
   }
   let sx=0,sy=0,k=0; for(const nd of nodes) if(nd.owner===pl.idx){ sx+=nd.cx; sy+=nd.cy; k++; }
   if(k===0){ pl._next=now+1000; return; }
   sx/=k; sy/=k;
+  // Nearest non-owned node; harder bots will press an enemy node when one is closest.
   let best=null, bd=Infinity;
   for(const nd of nodes){ if(nd.owner===pl.idx) continue; const dx=nd.cx-sx,dy=nd.cy-sy,d=dx*dx+dy*dy; if(d<bd){bd=d;best=nd;} }
   const pct=0.4+skill*0.4;
   const budget=Math.ceil(pl.influence*pct);
   if(best && budget>=1) expandToward(pl.idx, best.cx, best.cy, budget);
-  pl._next = now + (1.9 - skill*1.0 + rand(0,0.5))*1000;
+  pl._next = now + botDelay();
 }
 
 function step(dt){
@@ -391,6 +463,7 @@ function step(dt){
     else { if(b.acc>=CONFIG.OUTPOST_PERIOD){ b.acc-=CONFIG.OUTPOST_PERIOD; outpostFire(b); } } }
 
   if(CONFIG.OBSTACLES){ obstacleTimer-=dt; if(obstacleTimer<=0){ obstacleTimer=CONFIG.OBSTACLE_INTERVAL; spawnDynamicObstacle(); } }
+  if(bombardCd>0) bombardCd=Math.max(0,bombardCd-dt);
 
   for(const pl of players){ if(!pl.alive) continue;
     let inc=pl.nodeCount*CONFIG.INCOME_PER_NODE + pl.cells*CONFIG.INCOME_PER_CELL + CONFIG.TRICKLE;
@@ -472,6 +545,7 @@ function endPointer(e){
       if(me.alive){
         if(buildMode==="farm"){ placeBuild(cx,cy,"farm"); }
         else if(buildMode==="outpost"){ placeBuild(cx,cy,"outpost"); }
+        else if(buildMode==="bombard"){ tryBombard(cx,cy); }
         else {
           let handled=false;
           if(!me.hasBase && cx>=0&&cy>=0&&cx<COLS&&cy<ROWS){
@@ -620,6 +694,14 @@ function render(){
   if(lastCursorCell && pointers.size===0){
     const {cx,cy}=lastCursorCell;
     if(cx>=0&&cy>=0&&cx<COLS&&cy<ROWS){
+      if(buildMode==="bombard" && phase==="play"){
+        const ok = bombardCd<=0 && players[0].influence>=CONFIG.BOMBARD_COST && supplyPenalty(cx,cy,0)<=0;
+        const col = ok ? [224,138,60] : [192,86,75];
+        const ccx=((cx+0.5)*CELL-cam.x)*cam.zoom, ccy=((cy+0.5)*CELL-cam.y)*cam.zoom;
+        ctx.strokeStyle=rgbStr(col,0.9); ctx.lineWidth=2; ctx.setLineDash([6,5]);
+        ctx.beginPath(); ctx.arc(ccx,ccy,CONFIG.BOMBARD_RADIUS*CELL*cam.zoom,0,Math.PI*2); ctx.stroke(); ctx.setLineDash([]);
+        ctx.fillStyle=rgbStr(col,0.16); ctx.fill();
+      }
       ctx.strokeStyle = buildMode ? rgbStr([207,122,63],0.85) : (phase==="spawn" ? rgbStr(players[0].rgb,0.8) : "rgba(231,233,238,0.5)");
       ctx.lineWidth=1.5;
       ctx.strokeRect((cx*CELL-cam.x)*cam.zoom,(cy*CELL-cam.y)*cam.zoom,cw,cw);
@@ -695,6 +777,8 @@ function updateHUD(){
   if(!me.hasBase) inc*=(1-CONFIG.BASE_PENALTY);
   incV.textContent=inc.toFixed(1);
   budgetV.textContent=Math.ceil(me.influence*commitPct/100);
+  bombBtn.textContent = bombardCd>0 ? `Bombard ${Math.ceil(bombardCd)}s` : `Bombard ${CONFIG.BOMBARD_COST}`;
+  bombBtn.classList.toggle("cooling", bombardCd>0);
   if(me.hasBase){ baseInfo.className="ok"; }
   else {
     let eligible=false;
@@ -749,6 +833,12 @@ function buildSetup(){
   num.addEventListener("blur",()=>{ let v=parseInt(num.value,10); if(isNaN(v))v=1; v=Math.max(1,Math.min(99,v)); setupSel.opponents=v; num.value=String(v); });
   op.appendChild(num);
 
+  const df=document.getElementById("diff"); df.innerHTML="";
+  [["easy","Easy"],["normal","Normal"],["hard","Hard"]].forEach(([val,lab])=>{ const b=document.createElement("button");
+    b.className="seg"+(setupSel.difficulty===val?" sel":""); b.textContent=lab;
+    b.onclick=()=>{ setupSel.difficulty=val; [...df.children].forEach(c=>c.classList.remove("sel")); b.classList.add("sel"); };
+    df.appendChild(b); });
+
   const md=document.getElementById("mode"); md.innerHTML="";
   [["timed","Timed"],["royale","Battle royale"]].forEach(([val,lab])=>{ const b=document.createElement("button");
     b.className="seg"+(setupSel.mode===val?" sel":""); b.textContent=lab;
@@ -765,6 +855,7 @@ function startFromSetup(){
   const opp=Math.max(1,Math.min(99,setupSel.opponents||1));
   const total=1+opp;
   gameMode=setupSel.mode||"timed";
+  botCfg=DIFFS[setupSel.difficulty]||DIFFS.normal;
   const usedPreset=setupSel.custom==null;
   const humanRgb = usedPreset ? PALETTE[setupSel.color].rgb : hexToRgb(setupSel.custom);
   const botDefs=makeBotColors(total-1, usedPreset);
@@ -778,13 +869,14 @@ function startFromSetup(){
   commitPct=+pctEl.value;
   newRound();
 }
-const wallBtn=document.getElementById("wallBtn"), farmBtn=document.getElementById("farmBtn"), outBtn=document.getElementById("outBtn");
+const wallBtn=document.getElementById("wallBtn"), farmBtn=document.getElementById("farmBtn"), outBtn=document.getElementById("outBtn"), bombBtn=document.getElementById("bombBtn");
 function setBuildMode(m){ buildMode=m;
-  wallBtn.classList.toggle("on",m==="wall"); farmBtn.classList.toggle("on",m==="farm"); outBtn.classList.toggle("on",m==="outpost"); }
-function setBuildEnabled(on){ [wallBtn,farmBtn,outBtn].forEach(b=>{ b.disabled=!on; }); }
+  wallBtn.classList.toggle("on",m==="wall"); farmBtn.classList.toggle("on",m==="farm"); outBtn.classList.toggle("on",m==="outpost"); bombBtn.classList.toggle("on",m==="bombard"); }
+function setBuildEnabled(on){ [wallBtn,farmBtn,outBtn,bombBtn].forEach(b=>{ b.disabled=!on; }); }
 wallBtn.addEventListener("click",()=>setBuildMode(buildMode==="wall"?null:"wall"));
 farmBtn.addEventListener("click",()=>setBuildMode(buildMode==="farm"?null:"farm"));
 outBtn.addEventListener("click",()=>setBuildMode(buildMode==="outpost"?null:"outpost"));
+bombBtn.addEventListener("click",()=>setBuildMode(buildMode==="bombard"?null:"bombard"));
 function endRound(winner){
   running=false; phase="over"; spawnHint.style.display="none"; setBuildMode(null); setBuildEnabled(false);
   const ranked=[...players].sort((a,b)=>b.cells-a.cells);
