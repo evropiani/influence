@@ -86,7 +86,8 @@ You have **influence**. It buys land — one point per cell. Land and captured *
 ├── influence.html  # game markup
 ├── influence.css   # game styles
 ├── influence.js    # game logic
-├── screenshots/    # README images
+├── screenshots/    # README & tutorial images
+├── CHANGELOG.md    # what changed, newest first
 └── favicon.svg
 ```
 

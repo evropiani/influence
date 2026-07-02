@@ -17,7 +17,8 @@
     -webkit-font-smoothing:antialiased;padding:32px 18px 80px}
   .wrap{max-width:740px;margin:0 auto}
 
-  header{margin-bottom:34px}
+  header{margin-bottom:26px;display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap}
+  header a.play{margin-top:2px}
   .badge{display:inline-block;font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;
     color:var(--accent);border:1px solid var(--accent);border-radius:20px;padding:3px 11px;margin-bottom:14px}
   h1{font-family:var(--mono);font-size:34px;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
@@ -59,6 +60,12 @@
   details.acc[open] summary::after{content:"–"}
   details.acc summary:hover{color:var(--accent)}
   details.acc .inner{padding:0 20px 18px}
+  details.latest{background:rgba(207,122,63,.13);border:1px solid var(--accent);margin-bottom:16px}
+  details.latest summary{color:var(--accent)}
+  details.latest summary::after{color:var(--accent)}
+  details.latest .when{color:var(--muted);font-weight:400;font-size:12px;letter-spacing:.08em;margin-left:6px}
+  a.cl{color:var(--accent);font-family:var(--mono);font-size:12px;font-weight:700;text-decoration:none}
+  a.cl:hover{text-decoration:underline}
 
   img.shot{width:100%;border-radius:10px;border:1px solid var(--line);margin:12px 0 4px;display:block}
   .caption{font-size:12px;color:var(--muted);margin:4px 0 8px;font-family:var(--mono)}
@@ -87,10 +94,28 @@
 <body>
 <div class="wrap">
   <header>
-    <div class="badge">Beta</div>
-    <h1>Influence</h1>
-    <p class="tag">Paint the map your colour. Feed your economy. Ruin somebody's afternoon.</p>
+    <div>
+      <div class="badge">Beta</div>
+      <h1>Influence</h1>
+      <p class="tag">Paint the map your colour. Feed your economy. Ruin somebody's afternoon.</p>
+    </div>
+    <a class="play" href="influence.html">Play</a>
   </header>
+
+  <details class="acc latest">
+    <summary>Last changes <span class="when">· 2026-07-02</span></summary>
+    <div class="inner">
+      <ul>
+        <li><b>Two new modes:</b> The Zone (a circular map that collapses toward a random spot, 5 phases with a red warning ring) and Teams 2v2 / 3v3 (allies in your colour, no friendly fire).</li>
+        <li><b>New tool:</b> Bomb (250) — aimed strike on a cooldown. Renamed from "Bombard"; mode "Timed" is now "Classic".</li>
+        <li><b>Bot difficulty:</b> Easy / Normal / Hard — harder bots build farms and outposts of their own.</li>
+        <li><b>Hotkeys:</b> <span class="kbd">1</span><span class="kbd">2</span><span class="kbd">3</span><span class="kbd">4</span> toggle Wall / Farm / Outpost / Bomb.</li>
+        <li><b>Walls reworked:</b> 25 durability — attacks chip them down and leave visible cracks.</li>
+        <li>This page was rebuilt with illustrated tutorials for every mode and tool.</li>
+      </ul>
+      <p style="margin-top:10px"><a class="cl" href="https://github.com/evropiani/influence/blob/main/CHANGELOG.md">Full changelog →</a></p>
+    </div>
+  </details>
 
   <section>
     <h2>The whole game in 10 seconds</h2>
