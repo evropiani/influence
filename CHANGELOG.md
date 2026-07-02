@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to **Influence**, newest first. The latest day's changes are also shown in the "Last changes" box on the [How to Play page](https://evropiani.github.io/influence/).
+All notable changes to **Influence**, newest first. The latest day's changes are also shown in the "Latest changes" box on the [How to Play page](https://evropiani.github.io/influence/).
 
 ## 2026-07-02
 
