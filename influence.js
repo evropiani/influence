@@ -23,6 +23,7 @@ const CONFIG = {
   BOMBARD_COST:250, BOMBARD_RADIUS:6, BOMBARD_COOLDOWN:25,
   OBSTACLES:true, OBSTACLE_CLUSTERS:42, OBSTACLE_LEN_MIN:12, OBSTACLE_LEN_MAX:40,
   OBSTACLE_THICK_MIN:1, OBSTACLE_THICK_MAX:2.6, OBSTACLE_NODE_GAP:3, OBSTACLE_INTERVAL:16,
+  ZONE_PHASES:5, ZONE_CALM:85, ZONE_WARN:20, ZONE_SHRINK:15, ZONE_FACTOR:0.62, ZONE_FINAL:60,
   DEFAULT_PCT:50,
   ZOOM_MIN:0.28, ZOOM_MAX:1.7, ZOOM_START:0.7, PAN_KEY_SPEED:760,
   BOT_SKILL:0.6,
@@ -89,6 +90,8 @@ let phase="over";
 let spawnLeft=0, playStart=0, obstacleTimer=0, bombardCd=0;
 let buildMode=null;
 let gameMode="timed";
+let teamSize=2;
+let zone={state:"idle"};   // The Zone mode: calm -> warn (red ring) -> shrink -> ... -> final
 let wallWarned=false;
 
 const rand=(a,b)=>a+Math.random()*(b-a);
@@ -100,10 +103,11 @@ const dispName=p=> p.tag ? `[${p.tag}] ${p.name}` : p.name;
 const ENTRENCH_LEVELS=5;
 const capOf=pl=>CONFIG.CAP_BASE + pl.nodeCount*CONFIG.CAP_PER_NODE + (pl.farmCount||0)*CONFIG.CAP_PER_FARM;
 const enemyCost=idx=>CONFIG.ENEMY_BASE + Math.ceil(defense[idx]);
+const sameTeam=(a,b)=> a>=0 && b>=0 && players[a].team===players[b].team;   // FFA gives each player their own team
 function supplyPenalty(cx,cy,pIdx){
   let bd2=Infinity;
-  for(const nd of nodes){ if(nd.owner!==pIdx) continue; const dx=nd.cx-cx,dy=nd.cy-cy,d2=dx*dx+dy*dy; if(d2<bd2)bd2=d2; }
-  if(CONFIG.OUTPOST_SUPPLY){ for(const b of builds){ if(!b.alive||b.type!=="outpost"||b.owner!==pIdx) continue; const dx=b.cx-cx,dy=b.cy-cy,d2=dx*dx+dy*dy; if(d2<bd2)bd2=d2; } }
+  for(const nd of nodes){ if(!(nd.owner===pIdx || sameTeam(nd.owner,pIdx))) continue; const dx=nd.cx-cx,dy=nd.cy-cy,d2=dx*dx+dy*dy; if(d2<bd2)bd2=d2; }
+  if(CONFIG.OUTPOST_SUPPLY){ for(const b of builds){ if(!b.alive||b.type!=="outpost"||!(b.owner===pIdx||sameTeam(b.owner,pIdx))) continue; const dx=b.cx-cx,dy=b.cy-cy,d2=dx*dx+dy*dy; if(d2<bd2)bd2=d2; } }
   if(bd2===Infinity) return 0;
   const over=Math.sqrt(bd2)-CONFIG.SUPPLY_RANGE;
   return over<=0?0:Math.min(CONFIG.SUPPLY_MAX, Math.floor(over/CONFIG.SUPPLY_FALLOFF));
@@ -140,6 +144,7 @@ function expandToward(pIdx, tx, ty, budgetCap){
   while(heap.length && budget>=1){
     const idx=hpop()[1];
     if(owner[idx]===pIdx) continue;
+    if(owner[idx]>=0 && sameTeam(owner[idx],pIdx)) continue;   // never take a teammate's land
     const c=idx%COLS, r=(idx/COLS)|0;
     const enemy = owner[idx]>=0;
     const wallHp = enemy ? wall[idx] : 0;                  // wall stores remaining durability
@@ -203,7 +208,7 @@ function stampObstacle(cx,cy,r){
     const c=cx+dc, ry=cy+dr;
     if(c<1||ry<1||c>=COLS-1||ry>=ROWS-1) continue;
     const i=ry*COLS+c;
-    if(owner[i]!==-1) continue;                                  // never overwrite claimed land
+    if(owner[i]!==-1 || blocked[i]) continue;                    // never overwrite claimed land or zone void
     if(cellNode[i]>=0) continue;                                 // never bury a node
     if(!farFromNodes(c,ry,CONFIG.OBSTACLE_NODE_GAP)) continue;   // keep nodes reachable
     blocked[i]=1;
@@ -233,6 +238,57 @@ function spawnDynamicObstacle(){
     drawBarrier(cx,cy);
     if(!reduceMotion) flashes.push({cx,cy,t:0,rgb:[130,138,155],big:true});
     return;
+  }
+}
+// ---- The Zone mode ----------------------------------------------------------------------------
+// blocked[i]===2 marks "zone void": mechanically identical to rock (impassable, unownable) but
+// rendered as scorched dead ground. The playable area is a circle that periodically collapses
+// toward a RANDOM point inside itself; whatever falls outside is crushed — land, walls,
+// structures, and nodes (owners lose the node's cap and income, so hugging the edge is a gamble).
+function voidOutside(c){
+  const r2=c.r*c.r;
+  for(let i=0;i<N;i++){
+    if(blocked[i]===2) continue;
+    const dx=i%COLS-c.cx, dy=((i/COLS)|0)-c.cy;
+    if(dx*dx+dy*dy<=r2) continue;
+    const prev=owner[i];
+    if(prev>=0){ players[prev].cells--; owner[i]=-1; }
+    wall[i]=0; defense[i]=0; blocked[i]=2;
+    const s=structAt.get(i); if(s){ s.alive=false; structAt.delete(i); if(s.type==="farm") players[s.owner].farmCount--; }
+    const ni=cellNode[i]; if(ni>=0){ crushNode(ni); cellNode[i]=-1; }
+  }
+}
+function crushNode(ni){
+  const nd=nodes[ni]; if(nd.dead) return;
+  nd.dead=true;
+  if(nd.owner>=0){ const p=players[nd.owner]; p.nodeCount--;
+    if(nd.base){ nd.base=false; p.hasBase=false; p.baseIdx=-1; if(nd.owner===0) flash("Your base was crushed by the zone!"); } }
+  nd.owner=-1;
+}
+function pickNextZone(){
+  const nr=zone.cur.r*CONFIG.ZONE_FACTOR;
+  const maxD=(zone.cur.r-nr)*0.85, a=rand(0,Math.PI*2), d=rand(0,maxD);
+  zone.next={cx:zone.cur.cx+Math.cos(a)*d, cy:zone.cur.cy+Math.sin(a)*d, r:nr};
+}
+function stepZone(dt){
+  zone.timer-=dt;
+  if(zone.state==="calm"){
+    if(zone.timer<=0){ pickNextZone(); zone.state="warn"; zone.timer=CONFIG.ZONE_WARN; flash("The zone is moving — 20s"); }
+  } else if(zone.state==="warn"){
+    if(zone.timer<=0){ zone.state="shrink"; zone.timer=CONFIG.ZONE_SHRINK; zone.from={...zone.cur}; flash("The zone is collapsing!"); }
+  } else if(zone.state==="shrink"){
+    const t=1-Math.max(0,zone.timer)/CONFIG.ZONE_SHRINK;
+    zone.cur={ cx:zone.from.cx+(zone.next.cx-zone.from.cx)*t,
+               cy:zone.from.cy+(zone.next.cy-zone.from.cy)*t,
+               r: zone.from.r +(zone.next.r -zone.from.r )*t };
+    voidOutside(zone.cur);
+    if(zone.timer<=0){
+      zone.cur={...zone.next}; zone.next=null; zone.phase++;
+      if(zone.phase>=CONFIG.ZONE_PHASES){ zone.state="final"; zone.timer=CONFIG.ZONE_FINAL; flash("Final zone — most ground wins!"); }
+      else { zone.state="calm"; zone.timer=CONFIG.ZONE_CALM; }
+    }
+  } else if(zone.state==="final"){
+    if(zone.timer<=0){ endRound(topPlayer()); }
   }
 }
 function fillDisc(cx,cy,R,pIdx){
@@ -297,7 +353,7 @@ function outpostFire(b){
     const idx=cy*COLS+cx;
     if(blocked[idx]||cellNode[idx]>=0) continue;
     const prev=owner[idx];
-    if(prev===own) continue;
+    if(prev===own || (prev>=0 && sameTeam(prev,own))) continue;   // outposts spare teammates
     (prev>=0?enemyCells:emptyCells).push(idx);
   }
   shuffle(enemyCells); shuffle(emptyCells);
@@ -321,6 +377,7 @@ function bombard(cx,cy,own){
     const idx=r*COLS+c;
     const prev=owner[idx];
     if(prev<0 || prev===own || blocked[idx] || cellNode[idx]>=0) continue;   // only rival land, spare nodes
+    if(sameTeam(prev,own)) continue;                                          // bombs spare teammates
     owner[idx]=-1; defense[idx]=0; if(wall[idx]) wall[idx]=0;
     players[prev].cells--;
     const s=structAt.get(idx); if(s){ s.alive=false; structAt.delete(idx); if(s.type==="farm"&&players[s.owner]) players[s.owner].farmCount--; }
@@ -386,6 +443,10 @@ function newRound(){
   clearGrid();
   setBuildMode(null); setBuildEnabled(false);
   players.forEach(pl=>{ pl.cells=0; pl.nodeCount=0; pl.farmCount=0; pl.alive=true; pl.influence=CONFIG.START_INFLUENCE; pl._next=0; pl.hasBase=false; pl.baseIdx=-1; pl._spawnSet=false; });
+  if(gameMode==="zone"){
+    zone={state:"calm", phase:0, timer:CONFIG.ZONE_CALM, cur:{cx:COLS/2, cy:ROWS/2, r:Math.min(COLS,ROWS)/2-4}, next:null, from:null};
+    voidOutside(zone.cur);                                   // circular battlefield from the start
+  } else zone={state:"idle"};
   scatterNeutralNodes();
   rebuildCellNode();
   scatterObstacles();
@@ -449,7 +510,7 @@ function botTurn(pl, now){
   sx/=k; sy/=k;
   // Nearest non-owned node; harder bots will press an enemy node when one is closest.
   let best=null, bd=Infinity;
-  for(const nd of nodes){ if(nd.owner===pl.idx) continue; const dx=nd.cx-sx,dy=nd.cy-sy,d=dx*dx+dy*dy; if(d<bd){bd=d;best=nd;} }
+  for(const nd of nodes){ if(nd.dead || nd.owner===pl.idx || sameTeam(nd.owner,pl.idx)) continue; const dx=nd.cx-sx,dy=nd.cy-sy,d=dx*dx+dy*dy; if(d<bd){bd=d;best=nd;} }
   const pct=0.4+skill*0.4;
   const budget=Math.ceil(pl.influence*pct);
   if(best && budget>=1) expandToward(pl.idx, best.cx, best.cy, budget);
@@ -487,11 +548,19 @@ function step(dt){
   for(let i=flashes.length-1;i>=0;i--){ flashes[i].t+=dt; if(flashes[i].t>0.6) flashes.splice(i,1); }
 
   if(!players[0].alive){ endRound(topPlayer()); return; }
+  if(gameMode==="team"){
+    const t0=players.some(p=>p.team===0&&p.alive), t1=players.some(p=>p.team===1&&p.alive);
+    if(!t0||!t1){ endRound(topTeamPlayer(t0?0:1)); return; }
+  }
   const aliveP=players.filter(p=>p.alive);
   if(aliveP.length<=1){ endRound(aliveP[0]||null); return; }
-  if(gameMode!=="royale"){ timeLeft-=dt; if(timeLeft<=0){ timeLeft=0; endRound(topPlayer()); } }
+  if(gameMode==="zone"){ stepZone(dt); if(phase==="over") return; }
+  if(gameMode==="timed"||gameMode==="team"){ timeLeft-=dt; if(timeLeft<=0){ timeLeft=0; endRound(gameMode==="team"?topTeamPlayer(leadingTeam()):topPlayer()); } }
 }
 function topPlayer(){ let best=players[0]; for(const p of players) if(p.cells>best.cells) best=p; return best; }
+const teamCells=t=>players.reduce((a,p)=>a+(p.team===t?p.cells:0),0);
+const leadingTeam=()=>teamCells(0)>=teamCells(1)?0:1;
+function topTeamPlayer(t){ let best=null; for(const p of players) if(p.team===t&&(!best||p.cells>best.cells)) best=p; return best||players[0]; }
 
 function clampCam(){
   const vw=VIEW_W/cam.zoom, vh=VIEW_H/cam.zoom, m=240;
@@ -610,10 +679,13 @@ function render(){
     for(let c=c0;c<=c1;c++){
       const idx=base+c, ow=owner[idx];
       if(ow<0){
-        if(blocked[idx]){
+        if(blocked[idx]===1){
           const sx=(c*CELL-cam.x)*cam.zoom;
           ctx.fillStyle=ROCK_STR; ctx.fillRect(sx, sy, cw+1, cw+1);
           if(cw>=5){ ctx.fillStyle=ROCK_TOP; ctx.fillRect(sx, sy, cw+1, Math.max(1,cw*0.18)); } // top-light edge for a solid, blocky read
+        } else if(blocked[idx]===2){
+          const sx=(c*CELL-cam.x)*cam.zoom;
+          ctx.fillStyle="rgb(24,14,17)"; ctx.fillRect(sx, sy, cw+1, cw+1);                      // zone void: scorched dead ground
         }
         continue;
       }
@@ -668,6 +740,7 @@ function render(){
   const noBase=players[0] && !players[0].hasBase && phase==="play";
   const tnow=performance.now();
   for(const nd of nodes){
+    if(nd.dead) continue;
     const sx=((nd.cx+0.5)*CELL-cam.x)*cam.zoom, sy=((nd.cy+0.5)*CELL-cam.y)*cam.zoom;
     if(sx<-20||sy<-20||sx>VIEW_W+20||sy>VIEW_H+20) continue;
     if(nd.owner<0){
@@ -710,6 +783,13 @@ function render(){
     }
   }
 
+  if(gameMode==="zone" && zone.next && (zone.state==="warn"||zone.state==="shrink")){
+    const pulse=reduceMotion?0.9:(0.65+0.35*Math.sin(tnow*0.008));
+    const zx=(zone.next.cx*CELL-cam.x)*cam.zoom, zy=(zone.next.cy*CELL-cam.y)*cam.zoom;
+    ctx.strokeStyle=`rgba(205,62,52,${pulse})`; ctx.lineWidth=3;
+    ctx.beginPath(); ctx.arc(zx,zy,zone.next.r*CELL*cam.zoom,0,Math.PI*2); ctx.stroke();
+  }
+
   if(lastCursorCell && pointers.size===0){
     const {cx,cy}=lastCursorCell;
     if(cx>=0&&cy>=0&&cx<COLS&&cy<ROWS){
@@ -735,12 +815,16 @@ function drawMinimap(){
     const cy=Math.min(ROWS-1,(my/mm.height*ROWS)|0), row=cy*COLS;
     for(let mx=0;mx<mm.width;mx++){
       const cx=Math.min(COLS-1,(mx/mm.width*COLS)|0);
-      const ci=row+cx, ow=owner[ci]; const col=ow<0?(blocked[ci]?ROCK:[36,42,54]):players[ow].rgb;
+      const ci=row+cx, ow=owner[ci]; const col=ow<0?(blocked[ci]===2?[24,14,17]:blocked[ci]?ROCK:[36,42,54]):players[ow].rgb;
       const k=(my*mm.width+mx)*4; d[k]=col[0];d[k+1]=col[1];d[k+2]=col[2];d[k+3]=255;
     }
   }
   mctx.putImageData(mmImg,0,0);
   const scx=mm.width/WORLD_W, scy=mm.height/WORLD_H;
+  if(gameMode==="zone" && zone.next && (zone.state==="warn"||zone.state==="shrink")){
+    mctx.strokeStyle="rgba(215,70,58,0.95)"; mctx.lineWidth=1.5;
+    mctx.beginPath(); mctx.ellipse(zone.next.cx*CELL*scx, zone.next.cy*CELL*scy, zone.next.r*CELL*scx, zone.next.r*CELL*scy, 0, 0, Math.PI*2); mctx.stroke();
+  }
   mctx.strokeStyle="rgba(231,233,238,0.85)"; mctx.lineWidth=1;
   mctx.strokeRect(cam.x*scx, cam.y*scy, (VIEW_W/cam.zoom)*scx, (VIEW_H/cam.zoom)*scy);
 }
@@ -767,7 +851,9 @@ const clockEl=document.getElementById("clock"), infV=document.querySelector("#in
       cellInfo=document.getElementById("cellInfo"), baseInfo=document.getElementById("baseInfo"),
       spawnHint=document.getElementById("spawnHint");
 function drawClock(){
-  if(gameMode==="royale"){ const el=Math.max(0,(performance.now()-playStart)/1000), m=Math.floor(el/60), s=Math.floor(el%60);
+  if(gameMode==="zone"){ const s=Math.max(0,Math.ceil(zone.timer)), m=(s/60)|0, ss=s%60;
+    clockEl.textContent=`${m}:${ss<10?"0":""}${ss}`; clockEl.classList.toggle("warn", zone.state==="warn"||zone.state==="shrink"); }
+  else if(gameMode==="royale"){ const el=Math.max(0,(performance.now()-playStart)/1000), m=Math.floor(el/60), s=Math.floor(el%60);
     clockEl.textContent=`${m}:${s<10?"0":""}${s}`; clockEl.classList.remove("warn"); }
   else { const m=Math.floor(timeLeft/60), s=Math.floor(timeLeft%60);
     clockEl.textContent=`${m}:${s<10?"0":""}${s}`; clockEl.classList.toggle("warn",timeLeft<=20); }
@@ -848,6 +934,7 @@ function buildSetup(){
   const op=document.getElementById("opps"); op.innerHTML="";
   const num=document.createElement("input"); num.type="number"; num.id="oppIn"; num.className="numin";
   num.min="1"; num.max="99"; num.step="1"; num.value=String(setupSel.opponents);
+  num.disabled = setupSel.mode==="team2"||setupSel.mode==="team3";   // team sizes are fixed
   num.addEventListener("input",()=>{ let v=parseInt(num.value,10); if(isNaN(v))return; v=Math.max(1,Math.min(99,v)); setupSel.opponents=v; });
   num.addEventListener("blur",()=>{ let v=parseInt(num.value,10); if(isNaN(v))v=1; v=Math.max(1,Math.min(99,v)); setupSel.opponents=v; num.value=String(v); });
   op.appendChild(num);
@@ -859,9 +946,10 @@ function buildSetup(){
     df.appendChild(b); });
 
   const md=document.getElementById("mode"); md.innerHTML="";
-  [["timed","Classic"],["royale","Battle royale"]].forEach(([val,lab])=>{ const b=document.createElement("button");
+  [["timed","Classic"],["royale","Battle royale"],["zone","The Zone"],["team2","2v2"],["team3","3v3"]].forEach(([val,lab])=>{ const b=document.createElement("button");
     b.className="seg"+(setupSel.mode===val?" sel":""); b.textContent=lab;
-    b.onclick=()=>{ setupSel.mode=val; [...md.children].forEach(c=>c.classList.remove("sel")); b.classList.add("sel"); };
+    b.onclick=()=>{ setupSel.mode=val; [...md.children].forEach(c=>c.classList.remove("sel")); b.classList.add("sel");
+      num.disabled = val==="team2"||val==="team3"; };
     md.appendChild(b); });
 }
 function showSetup(){
@@ -871,19 +959,28 @@ function showSetup(){
   overlay.classList.remove("hidden"); buildSetup();
 }
 function startFromSetup(){
-  const opp=Math.max(1,Math.min(99,setupSel.opponents||1));
-  const total=1+opp;
-  gameMode=setupSel.mode||"timed";
+  const sel=setupSel.mode||"timed";
+  gameMode = (sel==="team2"||sel==="team3") ? "team" : sel;
+  teamSize = sel==="team3" ? 3 : 2;
   botCfg=DIFFS[setupSel.difficulty]||DIFFS.normal;
   const usedPreset=setupSel.custom==null;
   const humanRgb = usedPreset ? PALETTE[setupSel.color].rgb : hexToRgb(setupSel.custom);
-  const botDefs=makeBotColors(total-1, usedPreset);
+  const mkP=(idx,name,tag,rgb,isHuman,team)=>({idx, name, tag, rgb, isHuman, team,
+    influence:0, alive:true, cells:0, nodeCount:0, farmCount:0, hasBase:false, baseIdx:-1, _next:0, _spawn:null, _spawnSet:false});
   players=[];
-  players.push({idx:0, name:(nameIn.value.trim()||"Player"), tag:(tagIn.value||""), rgb:humanRgb,
-    isHuman:true, influence:0, alive:true, cells:0, nodeCount:0, farmCount:0, hasBase:false, baseIdx:-1, _next:0, _spawn:null, _spawnSet:false});
-  for(let i=1;i<total;i++){ const d=botDefs[i-1];
-    players.push({idx:i, name:d.name, tag:"", rgb:d.rgb,
-      isHuman:false, influence:0, alive:true, cells:0, nodeCount:0, farmCount:0, hasBase:false, baseIdx:-1, _next:0, _spawn:null, _spawnSet:false}); }
+  if(gameMode==="team"){
+    // Teammates share one colour; the enemy team gets the palette colour furthest from it.
+    let eRgb=PALETTE[0].rgb, bd=-1;
+    for(const p of PALETTE){ const d=(p.rgb[0]-humanRgb[0])**2+(p.rgb[1]-humanRgb[1])**2+(p.rgb[2]-humanRgb[2])**2; if(d>bd){bd=d;eRgb=p.rgb;} }
+    players.push(mkP(0,(nameIn.value.trim()||"Player"),(tagIn.value||""),humanRgb,true,0));
+    for(let i=1;i<teamSize;i++) players.push(mkP(i,"Ally "+i,"",humanRgb,false,0));
+    for(let i=0;i<teamSize;i++) players.push(mkP(teamSize+i,"Enemy "+(i+1),"",eRgb,false,1));
+  } else {
+    const opp=Math.max(1,Math.min(99,setupSel.opponents||1));
+    const botDefs=makeBotColors(opp, usedPreset);
+    players.push(mkP(0,(nameIn.value.trim()||"Player"),(tagIn.value||""),humanRgb,true,0));
+    for(let i=1;i<=opp;i++){ const d=botDefs[i-1]; players.push(mkP(i,d.name,"",d.rgb,false,i)); }
+  }
   overlay.classList.add("hidden"); oSetup.style.display="none";
   commitPct=+pctEl.value;
   newRound();
@@ -899,12 +996,26 @@ bombBtn.addEventListener("click",()=>setBuildMode(buildMode==="bombard"?null:"bo
 function endRound(winner){
   running=false; phase="over"; spawnHint.style.display="none"; setBuildMode(null); setBuildEnabled(false);
   const ranked=[...players].sort((a,b)=>b.cells-a.cells);
-  if(winner&&winner.isHuman){ oTitle.textContent="You win"; oSub.textContent=gameMode==="royale"?"Last one standing.":"Most ground held when the clock stopped."; }
-  else if(!players[0].alive){ oTitle.textContent="Eliminated"; oSub.textContent="All your territory was taken."; }
+  let teamRows="";
+  if(gameMode==="team"){
+    const myWin = winner && players[winner.idx].team===0 && players[0].alive;
+    if(myWin){ oTitle.textContent="Your team wins"; oSub.textContent="Held the most ground together."; }
+    else if(!players[0].alive){ oTitle.textContent="Eliminated"; oSub.textContent="All your territory was taken."; }
+    else { oTitle.textContent = winner ? "Enemy team wins" : "Draw"; oSub.textContent="Better luck next round."; }
+    const c0=teamCells(0), c1=teamCells(1);
+    teamRows =
+      `<div class="row"><span class="chip" style="background:${rgbStr(players[0].rgb)}"></span><span class="nm">Your team</span><span class="vv">${Math.round(c0/N*100)}%</span></div>`+
+      `<div class="row"><span class="chip" style="background:${rgbStr(players[players.length-1].rgb)}"></span><span class="nm">Enemy team</span><span class="vv">${Math.round(c1/N*100)}%</span></div>`;
+  }
+  else if(winner&&winner.isHuman){ oTitle.textContent="You win";
+    oSub.textContent = gameMode==="royale" ? "Last one standing."
+                     : gameMode==="zone"   ? "You outlasted the zone."
+                     : "Most ground held when the clock stopped."; }
+  else if(!players[0].alive){ oTitle.textContent="Eliminated"; oSub.textContent = gameMode==="zone" ? "The zone got you." : "All your territory was taken."; }
   else { oTitle.textContent=(winner?dispName(winner)+" wins":"Draw"); oSub.textContent="Better luck next round."; }
   oSetup.style.display="none";
   const top=ranked.slice(0,20);
-  oStandings.innerHTML=top.map(p=>`<div class="row"><span class="chip" style="background:${rgbStr(p.rgb)}"></span><span class="nm">${escapeHTML(dispName(p))}</span><span class="vv">${Math.round(p.cells/N*100)}%</span></div>`).join("")
+  oStandings.innerHTML=teamRows+top.map(p=>`<div class="row"><span class="chip" style="background:${rgbStr(p.rgb)}"></span><span class="nm">${escapeHTML(dispName(p))}</span><span class="vv">${Math.round(p.cells/N*100)}%</span></div>`).join("")
     + (ranked.length>20?`<div class="row"><span class="nm" style="opacity:.55">…and ${ranked.length-20} more</span></div>`:"");
   oBtn.textContent="Play again"; overlay.classList.remove("hidden");
 }
@@ -920,7 +1031,7 @@ function frame(now){
   requestAnimationFrame(frame);
 }
 
-players=[{idx:0,name:"Player",tag:"",rgb:PALETTE[0].rgb,isHuman:true,influence:0,alive:true,cells:0,nodeCount:0,farmCount:0,hasBase:false,baseIdx:-1,_next:0,_spawn:null,_spawnSet:false}];
+players=[{idx:0,name:"Player",tag:"",rgb:PALETTE[0].rgb,isHuman:true,team:0,influence:0,alive:true,cells:0,nodeCount:0,farmCount:0,hasBase:false,baseIdx:-1,_next:0,_spawn:null,_spawnSet:false}];
 clearGrid(); scatterNeutralNodes(); rebuildCellNode(); computeColors();
 resize();
 cam.x=WORLD_W/2-(VIEW_W/cam.zoom)/2; cam.y=WORLD_H/2-(VIEW_H/cam.zoom)/2; clampCam();

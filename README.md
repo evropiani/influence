@@ -26,6 +26,10 @@
 |---|---|
 | ![Gameplay — territories colliding around rock barriers](screenshots/gameplay.png) | ![Aiming a bomb at enemy territory](screenshots/bomb.png) |
 
+**The Zone** — the red ring shows where the map collapses next:
+
+![The Zone mode — circular map with the red warning ring](screenshots/zone.png)
+
 <details>
 <summary>Start screen (colours, opponents, difficulty, mode)</summary>
 
@@ -64,6 +68,8 @@ You have **influence**. It buys land — one point per cell. Land and captured *
 
 - **Classic** — most territory when the clock runs out wins.
 - **Battle royale** — no timer, last one standing wins.
+- **The Zone** 🔴 — a circular map that collapses in **5 phases** (2 min each) toward a **random** spot — a red ring warns you 20 seconds ahead. Whatever falls outside is crushed, *including nodes* — and their cap and income die with them.
+- **2v2 / 3v3** ⚔️ — bot allies in **your colour**. No friendly fire, shared supply range, most combined ground wins.
 - **Difficulty** — Easy / Normal / Hard. Harder bots think faster, commit harder, and build farms and outposts of their own. Up to **99** opponents, if you're feeling brave.
 
 ## 🗂️ Project structure
