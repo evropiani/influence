@@ -1,8 +1,7 @@
 name: Deploy to cPanel mirror
 
-# Mirrors the site to the personal server (a private location) on every
-# push to main. The FTP account is scoped to the target directory, so "./" below
-# is already the right place — no absolute paths needed.
+# Mirrors the site to a private server on every push to main. The FTP account is
+# scoped to the target directory, so "./" below is already the right place.
 on:
   push:
     branches: [main]
