@@ -4,6 +4,7 @@ All notable changes to **Influence**, newest first. The latest day's changes are
 
 ## 2026-07-02
 
+- **Second host**: every push to `main` now also mirrors the site to a personal server via an FTPS GitHub Actions workflow — GitHub Pages outages no longer take the game down.
 - **New mode — The Zone**: a circular map that collapses in 5 phases (2 minutes each) toward a **random** point. A red warning ring appears 20 seconds before each collapse, on the map and minimap. Crushed ground is destroyed — land, walls, buildings, and **nodes**, which take their income and cap with them. After the fifth collapse, a 60-second final countdown decides the winner by territory.
 - **New modes — Teams 2v2 & 3v3**: bot allies share your colour against a matched enemy team. No friendly fire — expansion, bombs and outposts all spare teammates — and ally nodes/outposts extend your supply range. Most combined ground wins; the results screen shows team totals.
 - **New tool — Bomb (250)**: an aimed strike on a 25-second cooldown that blasts a neutral crater out of enemy territory anywhere within supply range (cells, walls and buildings — nodes survive). Outposts extend its reach. The aiming reticle shows valid (orange) and invalid (red) targets.

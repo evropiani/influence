@@ -107,7 +107,10 @@ All game balance lives in the `CONFIG` object at the top of `influence.js` — m
 
 ## 📦 Deployment
 
-Hosted on GitHub Pages straight from this repo — push to `main` and the live site updates.
+Two hosts, both updated automatically on every push to `main`:
+
+- **GitHub Pages** — built and served straight from this repo.
+- **Mirror** — `.github/workflows/deploy-cpanel.yml` syncs the site via FTPS to a personal server (credentials live in the repo's Actions secrets).
 
 ## 💬 Feedback
 

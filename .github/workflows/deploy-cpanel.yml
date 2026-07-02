@@ -1,0 +1,29 @@
+name: Deploy to cPanel mirror
+
+# Mirrors the site to the personal server (a private location) on every
+# push to main. The FTP account is scoped to the target directory, so "./" below
+# is already the right place — no absolute paths needed.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:      # allows manual runs from the Actions tab
+
+concurrency:
+  group: cpanel-deploy
+  cancel-in-progress: false
+
+jobs:
+  ftp-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Sync files via FTPS
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftps
+          server-dir: ./
+          # .git*, .github and node_modules are excluded by the action's defaults
