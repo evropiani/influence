@@ -16,7 +16,7 @@ const CONFIG = {
   SUPPLY_RANGE:22, SUPPLY_FALLOFF:6, SUPPLY_MAX:12,
   ENTRENCH_SHADE:0.38,
   BASE_COST:300, BASE_PENALTY:0.30,
-  WALL_COST:20, WALL_DESTROY:15,
+  WALL_COST:20, WALL_HP:25,
   FARM_COST:400, FARM_PERIOD:15, FARM_YIELD:120, CAP_PER_FARM:40,
   OUTPOST_COST:300, OUTPOST_PERIOD:12, OUTPOST_SHOTS:40, OUTPOST_RADIUS:16,
   OUTPOST_BEACHHEAD:2, OUTPOST_ERODE:2, OUTPOST_SUPPLY:true,
@@ -142,9 +142,13 @@ function expandToward(pIdx, tx, ty, budgetCap){
     if(owner[idx]===pIdx) continue;
     const c=idx%COLS, r=(idx/COLS)|0;
     const enemy = owner[idx]>=0;
-    let cost = (enemy ? enemyCost(idx) : 1) + supplyPenalty(c,r,pIdx);
-    if(enemy && wall[idx]) cost += CONFIG.WALL_DESTROY;
-    if(budget<cost) continue;
+    const wallHp = enemy ? wall[idx] : 0;                  // wall stores remaining durability
+    let cost = (enemy ? enemyCost(idx) : 1) + supplyPenalty(c,r,pIdx) + wallHp;
+    if(budget<cost){
+      // Not enough to take a walled cell outright: the leftover chips the wall instead (cracks show).
+      if(wallHp>0 && budget>=1){ const dmg=Math.min(Math.floor(budget),wallHp); wall[idx]-=dmg; budget-=dmg; spent+=dmg; }
+      continue;
+    }
     const prev=owner[idx];
     owner[idx]=pIdx; defense[idx]=0; if(wall[idx]) wall[idx]=0; budget-=cost; spent+=cost;
     players[pIdx].cells++; if(prev>=0) players[prev].cells--;
@@ -266,7 +270,7 @@ function paintWall(cx,cy){
   const idx=cy*COLS+cx;
   if(owner[idx]!==0 || wall[idx] || cellNode[idx]>=0 || structAt.has(idx)) return;
   if(players[0].influence < CONFIG.WALL_COST){ if(!wallWarned){ flash(`Need ${CONFIG.WALL_COST} influence`); wallWarned=true; } return; }
-  wall[idx]=1; players[0].influence -= CONFIG.WALL_COST;
+  wall[idx]=CONFIG.WALL_HP; players[0].influence -= CONFIG.WALL_COST;
 }
 function placeBuild(cx,cy,type){
   if(phase!=="play") return;
@@ -327,11 +331,11 @@ function tryBombard(cx,cy){
   if(phase!=="play") return;
   const me=players[0]; if(!me.alive) return;
   if(cx<0||cy<0||cx>=COLS||cy>=ROWS){ flash("Aim on the map"); return; }
-  if(bombardCd>0){ flash(`Bombard recharging · ${Math.ceil(bombardCd)}s`); return; }
+  if(bombardCd>0){ flash(`Bomb recharging · ${Math.ceil(bombardCd)}s`); return; }
   if(me.influence<CONFIG.BOMBARD_COST){ flash(`Need ${CONFIG.BOMBARD_COST} influence`); return; }
   if(supplyPenalty(cx,cy,0)>0){ flash("Target out of supply range"); return; }
   me.influence-=CONFIG.BOMBARD_COST; bombardCd=CONFIG.BOMBARD_COOLDOWN;
-  bombard(cx,cy,0); flash("Bombard away!");
+  bombard(cx,cy,0); flash("Bombs away!");
 }
 function spawnCellFree(cx,cy){
   if(cx<0||cy<0||cx>=COLS||cy>=ROWS) return false;
@@ -577,7 +581,14 @@ display.addEventListener("wheel", e=>{
   cam.zoom=clamp(cam.zoom*(e.deltaY<0?1.12:1/1.12),CONFIG.ZOOM_MIN,CONFIG.ZOOM_MAX);
   cam.x=wx-sx/cam.zoom; cam.y=wy-sy/cam.zoom; clampCam();
 },{passive:false});
-addEventListener("keydown", e=>{ keys.add(e.key.toLowerCase()); });
+const HOTKEYS={ "1":"wall", "2":"farm", "3":"outpost", "4":"bombard" };
+addEventListener("keydown", e=>{
+  const t=e.target;
+  if(t && t.tagName==="INPUT" && t.type!=="range") return;   // don't hijack typing in name/tag/number fields
+  const k=e.key.toLowerCase();
+  if(phase==="play" && !e.repeat && HOTKEYS[k]){ const m=HOTKEYS[k]; setBuildMode(buildMode===m?null:m); return; }
+  keys.add(k);
+});
 addEventListener("keyup",   e=>{ keys.delete(e.key.toLowerCase()); });
 
 function mmJump(e){ const r=mm.getBoundingClientRect();
@@ -614,6 +625,14 @@ function render(){
       if(wall[idx]){
         ctx.fillStyle="#cdd2db"; ctx.fillRect(sx+inset, sy+inset, wsz, wsz);
         ctx.fillStyle="rgba(20,24,32,0.5)"; ctx.fillRect(sx+inset, sy+cw*0.47, wsz, Math.max(1,cw*0.08));
+        const dmg=1-wall[idx]/CONFIG.WALL_HP;
+        if(dmg>0 && cw>=4){                                  // cracks appear as durability drops
+          ctx.strokeStyle="rgba(20,24,32,0.85)"; ctx.lineWidth=Math.max(1,cw*0.07); ctx.beginPath();
+          ctx.moveTo(sx+inset+wsz*0.15, sy+inset+wsz*0.1); ctx.lineTo(sx+inset+wsz*0.5, sy+inset+wsz*0.55);
+          if(dmg>0.34){ ctx.moveTo(sx+inset+wsz*0.9, sy+inset+wsz*0.2); ctx.lineTo(sx+inset+wsz*0.45, sy+inset+wsz*0.7); }
+          if(dmg>0.67){ ctx.moveTo(sx+inset+wsz*0.3, sy+inset+wsz*0.95); ctx.lineTo(sx+inset+wsz*0.6, sy+inset+wsz*0.45); }
+          ctx.stroke();
+        }
       }
     }
   }
@@ -777,7 +796,7 @@ function updateHUD(){
   if(!me.hasBase) inc*=(1-CONFIG.BASE_PENALTY);
   incV.textContent=inc.toFixed(1);
   budgetV.textContent=Math.ceil(me.influence*commitPct/100);
-  bombBtn.textContent = bombardCd>0 ? `Bombard ${Math.ceil(bombardCd)}s` : `Bombard ${CONFIG.BOMBARD_COST}`;
+  bombBtn.textContent = bombardCd>0 ? `Bomb ${Math.ceil(bombardCd)}s` : `Bomb ${CONFIG.BOMBARD_COST}`;
   bombBtn.classList.toggle("cooling", bombardCd>0);
   if(me.hasBase){ baseInfo.className="ok"; }
   else {
@@ -792,9 +811,9 @@ function updateHUD(){
     if(cx>=0&&cy>=0&&cx<COLS&&cy<ROWS){
       const idx=cy*COLS+cx, ow=owner[idx], pen=supplyPenalty(cx,cy,0);
       if(blocked[idx]) cellInfo.textContent="barrier · impassable";
-      else if(ow===0) cellInfo.textContent = wall[idx]?"your wall":"your land";
+      else if(ow===0) cellInfo.textContent = wall[idx]?`your wall · ${wall[idx]}/${CONFIG.WALL_HP}`:"your land";
       else if(ow<0) cellInfo.textContent=`empty · ${1+pen}/cell`;
-      else cellInfo.textContent=`enemy · ${enemyCost(idx)+(wall[idx]?CONFIG.WALL_DESTROY:0)+pen}/cell`;
+      else cellInfo.textContent=`enemy · ${enemyCost(idx)+wall[idx]+pen}/cell`;
     } else cellInfo.textContent="";
   }
 }
@@ -840,14 +859,14 @@ function buildSetup(){
     df.appendChild(b); });
 
   const md=document.getElementById("mode"); md.innerHTML="";
-  [["timed","Timed"],["royale","Battle royale"]].forEach(([val,lab])=>{ const b=document.createElement("button");
+  [["timed","Classic"],["royale","Battle royale"]].forEach(([val,lab])=>{ const b=document.createElement("button");
     b.className="seg"+(setupSel.mode===val?" sel":""); b.textContent=lab;
     b.onclick=()=>{ setupSel.mode=val; [...md.children].forEach(c=>c.classList.remove("sel")); b.classList.add("sel"); };
     md.appendChild(b); });
 }
 function showSetup(){
   oTitle.textContent="Influence";
-  oSub.innerHTML="Spend influence to claim land — it goes into cells one-for-one. Pick a spawn, then <b>tap toward where you want to grow</b>. Empty land is cheap; enemy land costs more the longer it's held. Capture <b>nodes</b> for income, guard your <b>base</b>, and spend influence on <b>walls, farms and outposts</b> from the bottom bar. Most ground when the clock runs out — or last one standing in battle royale.<div style=\"margin-top:12px\"><a class=\"howto\" href=\"index.html\">How to play</a></div>";
+  oSub.innerHTML="Spend influence to claim land — it goes into cells one-for-one. Pick a spawn, then <b>tap toward where you want to grow</b>. Empty land is cheap; enemy land costs more the longer it's held. Capture <b>nodes</b> for income, guard your <b>base</b>, and spend influence on <b>walls, farms, outposts and bombs</b> from the bottom bar (keys <b>1–4</b>). Most ground when the clock runs out — or last one standing in battle royale.<div style=\"margin-top:12px\"><a class=\"howto\" href=\"index.html\">How to play</a></div>";
   oSetup.style.display=""; oStandings.innerHTML=""; oBtn.textContent="Start";
   overlay.classList.remove("hidden"); buildSetup();
 }

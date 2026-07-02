@@ -35,11 +35,10 @@
   ul{list-style:none;margin:8px 0}
   li{position:relative;padding-left:20px;margin:8px 0;color:#d4dae5}
   li::before{content:"";position:absolute;left:2px;top:10px;width:6px;height:6px;border-radius:50%;background:var(--accent)}
-  .steps{counter-reset:s}
-  .steps li{padding-left:34px;margin:12px 0}
-  .steps li::before{counter-increment:s;content:counter(s);top:0;left:0;width:22px;height:22px;border-radius:6px;
-    background:var(--panel);color:var(--ink);font-family:var(--mono);font-size:12px;font-weight:700;
-    display:flex;align-items:center;justify-content:center}
+
+  .kbd{display:inline-block;font-family:var(--mono);font-size:12px;font-weight:700;color:var(--ink);
+    background:var(--panel);border:1px solid var(--line);border-bottom-width:2px;border-radius:6px;
+    padding:1px 8px;margin-right:2px;vertical-align:baseline}
 
   .two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
   .sub{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
@@ -67,12 +66,12 @@
   <header>
     <div class="badge">Beta</div>
     <h1>Influence</h1>
-    <p class="tag">A quick-round land grab. Paint the most ground before the clock runs out — or wipe everyone off the map.</p>
+    <p class="tag">Paint the map your colour. Feed your economy. Ruin somebody's afternoon.</p>
   </header>
 
   <section>
-    <h2>The idea in 10 seconds</h2>
-    <p class="lead">You spend <span class="accent">influence</span> to claim cells and turn the map your colour. Land and captured <span class="accent">nodes</span> fund you. Whoever holds the most territory when time runs out wins.</p>
+    <h2>The whole game in 10 seconds</h2>
+    <p class="lead">You have <span class="accent">influence</span>. It buys land, one point per cell. Land and <span class="accent">nodes</span> make more influence. Hold the most ground when the clock stops — or be the last one standing. That's it. Everything below is spice.</p>
   </section>
 
   <section>
@@ -81,86 +80,79 @@
       <div>
         <div class="sub">PC</div>
         <ul>
-          <li><b>Click toward</b> where you want to grow — your nearest border pushes that way.</li>
-          <li><b>Drag</b> to pan, <b>mouse wheel</b> to zoom. <b>WASD</b> or arrow keys pan too.</li>
-          <li><b>Minimap</b> (corner): click to jump across the map.</li>
+          <li><b>Click</b> toward where you want to grow.</li>
+          <li><b>Drag</b> to pan · <b>wheel</b> to zoom · <b>WASD</b> works too.</li>
+          <li><span class="kbd">1</span><span class="kbd">2</span><span class="kbd">3</span><span class="kbd">4</span> toggle Wall / Farm / Outpost / Bomb.</li>
+          <li><b>Ctrl+click</b> also paints walls, old-school.</li>
         </ul>
       </div>
       <div>
         <div class="sub">Mobile</div>
         <ul>
-          <li><b>Tap toward</b> where you want to grow.</li>
-          <li><b>One finger drag</b> to pan, <b>pinch</b> to zoom.</li>
-          <li><b>Tap the minimap</b> to jump.</li>
+          <li><b>Tap</b> toward where you want to grow.</li>
+          <li><b>Drag</b> to pan · <b>pinch</b> to zoom.</li>
+          <li>Tools live in the bottom bar.</li>
+          <li>Tap the <b>minimap</b> to jump around.</li>
         </ul>
       </div>
     </div>
   </section>
 
   <section>
-    <h2>How it works</h2>
-    <ul class="steps">
-      <li><b>Influence</b> is your currency (bottom-left). It refills on its own, and every point spends as one cell of empty land.</li>
-      <li>The <b>Commit</b> slider sets how much of your influence each tap spends. Slide low for careful pokes, high to throw everything at one push.</li>
-      <li><span class="node"></span> <b>Nodes</b> are the ringed points dotted around the map. Grow your territory over one to <b>capture</b> it. Nodes are your economy — they pay influence over time, raise your influence limit, and act as supply points. Grabbing one also drops an instant bonus (bigger for stealing an enemy's).</li>
-      <li>Your influence has a <b>cap</b> (shown as <span class="accent">X / limit</span>) that grows as you capture nodes. You can't hoard a giant reserve, so getting big first doesn't let you sit back and steamroll — you have to spend well.</li>
+    <h2>Nodes are your wallet</h2>
+    <p><span class="node"></span> The ringed dots on the map. Grow over one to capture it. Each node pays you influence, raises your <b>cap</b>, and extends how far you can push cheaply. Stealing an enemy's node pays a <span class="accent">fat bonus</span> and starves them.</p>
+    <p>The <b>Commit slider</b> sets how hard each tap swings — low for careful pokes, high to throw everything at one push.</p>
+  </section>
+
+  <section>
+    <h2>Fighting</h2>
+    <p>Empty land costs <b>1</b> per cell. Enemy land costs more the longer they've held it:</p>
+    <div class="swatches">
+      <div class="demo"><span class="box" style="background:#3a8f86"></span><span class="t">Bright<small>fresh · soft · cheap</small></span></div>
+      <div class="demo"><span class="box" style="background:#245953"></span><span class="t">Dark<small>dug in · tough · pricey</small></span></div>
+    </div>
+    <p>Hit the <span class="accent">bright seams</span>. Don't grind into dark cores. And pushing far from your nodes costs extra — capture your way forward instead of lunging across the map.</p>
+  </section>
+
+  <section>
+    <h2>Your toolbar</h2>
+    <ul>
+      <li><span class="kbd">1</span> <b>Wall</b> (<span class="accent">20</span>) — has <span class="accent">25 durability</span>. Attacks chip away at it and leave visible <b>cracks</b>, so you can see a wall about to give.</li>
+      <li><span class="kbd">2</span> <b>Farm</b> (<span class="accent">400</span>) — pays <span class="accent">+120</span> every 15s and raises your cap. Your economy engine.</li>
+      <li><span class="kbd">3</span> <b>Outpost</b> (<span class="accent">300</span>) — chews up to <span class="accent">40 cells</span> every 12s, prefers enemy land, and acts as a <b>forward supply point</b>. Your spearhead.</li>
+      <li><span class="kbd">4</span> <b>Bomb</b> (<span class="accent">250</span>) — aim anywhere in supply range and blast a crater out of enemy territory: cells, walls and buildings gone. On a cooldown. Outposts extend its reach.</li>
     </ul>
   </section>
 
   <section>
-    <h2>Fighting &amp; entrenchment</h2>
-    <p>Empty land costs <b>1</b> influence per cell. Taking an <b>enemy's</b> cell costs more — and the longer they've held it, the tougher it gets. You can see this at a glance: fresh land is bright, dug-in land is darker.</p>
-    <div class="swatches">
-      <div class="demo"><span class="box" style="background:#3a8f86"></span><span class="t">Bright<small>fresh · weak · cheap to take</small></span></div>
-      <div class="demo"><span class="box" style="background:#245953"></span><span class="t">Dark<small>dug in · tough · expensive</small></span></div>
-    </div>
-    <p>So aim for <span class="accent">bright, soft seams</span> and avoid grinding straight into a dark, fortified core. Capturing an enemy's <b>node</b> is the real prize — a fat influence bonus, and it starves their economy.</p>
-  </section>
-
-  <section>
-    <h2>Supply lines</h2>
-    <p>Pushing far from your own nodes costs <b>extra</b> per cell — you can't lunge clear across the map in one move. To reach further, capture nodes along the way: every node you own widens the area you can expand into cheaply.</p>
-    <p class="accent">Build outward, node by node — don't overreach.</p>
-  </section>
-
-  <section>
-    <h2>Barriers</h2>
-    <p>The map is broken up by <b>rock barriers</b> — impassable grey terrain you can't claim or build on. Your expansion flows <b>around</b> them, so a wall between you and a target forces a long, costly detour. That's the point: no more sniping straight across the open map at a distant node or rival.</p>
-    <p>New barriers also <b>form during the round</b>, sprouting on open ground — so choke points shift over time and a lane that was clear a minute ago may close. Watch the map and don't count on a corridor staying open.</p>
+    <h2>The map fights back</h2>
+    <p>Grey <b>rock barriers</b> carve up the map — you can't own them or cross them, so armies flow around like water. New barriers keep forming <b>mid-round</b>. A lane that's open now might not stay open. Plan accordingly.</p>
   </section>
 
   <section>
     <h2>Your base</h2>
-    <p>The <b>star</b> sitting in your territory is your base. Hang on to it — if an enemy captures it, your income drops by <span class="accent">30%</span> until you build a new one.</p>
-    <p>To rebuild: hold a node long enough that it's <b>fully dug in</b> (its cell reaches maximum entrenchment), then tap it and pay <span class="accent">300 influence</span>. It turns into your new base and your income is restored. Nodes you can convert will glow, so you always know your options.</p>
+    <p>The <b>star</b> is your base. Lose it and your income drops <span class="accent">30%</span>. To rebuild: fully entrench a node (it'll glow), tap it, pay <span class="accent">300</span>. Back in business.</p>
   </section>
 
   <section>
-    <h2>Spawn, build &amp; modes</h2>
-    <p>Every round opens with a <b>10-second spawn phase</b> — tap an empty spot to choose where you drop in (you can't spawn on or too close to a node, or right next to a rival). Rival spawns show up too, so pick your ground wisely.</p>
-    <p>Once you're rolling, spend influence on structures from the bottom bar, all placed inside your own territory:</p>
-    <ul>
-      <li><b>Walls</b> (<span class="accent">20</span> each) — hold <b>Ctrl</b> and click to paint them, or tap the <b>Wall</b> button to toggle paint mode on mobile. They cost an attacker an extra <span class="accent">15</span> to break through.</li>
-      <li><b>Farms</b> (<span class="accent">400</span>) — pay out <span class="accent">+120 influence</span> every 15 seconds, and each one <b>raises your influence cap</b> so you can bankroll bigger pushes.</li>
-      <li><b>Outposts</b> (<span class="accent">300</span>) — every 12 seconds they claim up to <span class="accent">40 cells</span> in a radius around them, <b>favouring enemy land</b>, leaving a defended beachhead, and <b>softening</b> nearby enemy entrenchment. They also act as a <b>forward supply point</b> — expand cheaply from an outpost the way you would from a node.</li>
-      <li><b>Bombard</b> (<span class="accent">250</span>) — tap the button, then aim anywhere <b>within your supply range</b> to blast a neutral crater out of enemy territory: it strips their cells, entrenchment and structures so you can pour into the gap. On a <span class="accent">cooldown</span>, and <b>outposts extend how far you can reach with it</b>.</li>
-    </ul>
-    <p><b>Modes:</b> <b>Timed</b> is the classic clock race; <b>Battle royale</b> drops the timer entirely — <span class="accent">last player standing wins</span>. On the start screen you also choose your number of opponents (up to 99) and the bot <b>difficulty</b> — <span class="accent">Easy</span>, <span class="accent">Normal</span>, or <span class="accent">Hard</span>. Harder bots think faster, push harder, and build farms and outposts of their own.</p>
+    <h2>Modes &amp; bots</h2>
+    <p><b>Classic</b> — most territory when the clock runs out. <b>Battle royale</b> — no clock, last one standing.</p>
+    <p>Pick <span class="accent">Easy</span>, <span class="accent">Normal</span> or <span class="accent">Hard</span> bots — harder ones think faster, hit harder, and build farms and outposts of their own. Up to <b>99</b> of them, if you're feeling brave.</p>
   </section>
 
   <section>
-    <h2>Quick tips</h2>
+    <h2>Cheat sheet</h2>
     <ul>
-      <li>Grab the nodes near you first. They pay for everything and extend how far you can reach.</li>
-      <li>Read the colours: bright edges are weak points, dark ones are fortified.</li>
-      <li>A capped bar spent far from your nodes buys almost nothing. Set up a forward node first, then strike.</li>
-      <li>Borders you've held a while are cheap to defend and costly to crack — patience pays.</li>
+      <li>Grab nearby nodes first. Always.</li>
+      <li>Bright enemy edges = free real estate. Dark cores = money pit.</li>
+      <li>Farm early, outpost forward, bomb the stubborn bits.</li>
+      <li>Watch for cracks — yours and theirs.</li>
     </ul>
   </section>
 
   <section class="contact">
     <h2>It's a beta</h2>
-    <p>This is early — expect things to change, break, and get better. If you've got ideas, feedback, or you hit a bug, I'd love to hear it.</p>
+    <p>Expect things to change, break, and get better. If you've got ideas, feedback, or you hit a bug, I'd love to hear it.</p>
     <p>Find me on Discord: <span class="discord"><a href="https://discord.com/users/319246364246540288/">@evropiani</a></span></p>
     <a class="play" href="influence.html">Play</a>
   </section>

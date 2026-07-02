@@ -1,45 +1,72 @@
-# Influence
+<div align="center">
 
-A fast, browser-based territory game inspired by titles like territorial.io — claim land, capture nodes, and outgrow everyone else before the clock runs out (or wipe them all off the map in battle royale).
+# I N F L U E N C E
 
-**[Play it here](https://evropiani.github.io/influence/)**
+🟥🟥🟥🟥⬛⬛🟦🟦🟦⬛⬛⬛🟨🟨🟨🟨🟨🟨
+🟥🟥🟥⬛⬛🟦🟦🟦🟦🟦⬛🟨🟨🟨🟨🟨🟨🟨
+🟥🟥⬛⬜⬜⬜⬛🟦🟦🟦⬛⬛🟨🟨🟨🟨🟨🟨
+⬛⬛⬜⬜⬛⬛⬛⬛🟦🟦🟦⬛⬛⬛🟪🟪🟪🟪
+🟩🟩⬛⬛⬛🟧🟧🟧🟧⬛🟦🟦⬛🟪🟪🟪🟪🟪
+🟩🟩🟩🟩⬛🟧🟧🟧🟧🟧⬛⬛🟪🟪🟪🟪🟪🟪
 
-## How it works
+**A fast browser land-grab.** Paint the map your colour, feed your economy, ruin somebody's afternoon.
 
-Spend **influence** to claim cells one-for-one. Tap or click toward where you want to grow, and your nearest border pushes in that direction. Empty land is cheap; enemy land costs more, and the longer it's been held the tougher it gets — fresh ground is bright, dug-in territory is dark.
+[![Play now](https://img.shields.io/badge/▶_PLAY_NOW-cf7a3f?style=for-the-badge)](https://evropiani.github.io/influence/influence.html)
+[![How to play](https://img.shields.io/badge/How_to_play-2b313f?style=for-the-badge)](https://evropiani.github.io/influence/)
 
-Capture **nodes** scattered across the map for income, a bigger influence cap, and supply range. Guard your **base** (shown as a star) — lose it and your income drops until you rebuild on a fully entrenched node.
+![status](https://img.shields.io/badge/status-beta-cf7a3f) ![stack](https://img.shields.io/badge/vanilla-HTML·CSS·JS-3a8f86) ![deps](https://img.shields.io/badge/dependencies-zero-5566a6)
 
-### Buildables
+</div>
 
-Spend influence on structures inside your own territory:
+---
 
-- **Walls** — 20 influence per cell. Hold `Ctrl` and click (or toggle the Wall button on mobile) to paint them. Enemies pay an extra 15 to break through.
-- **Farms** — 400 influence, pay out +120 influence every 15 seconds and raise your influence cap.
-- **Outposts** — 300 influence. Every 12 seconds they claim up to 40 cells around them, favouring enemy land, leaving a defended beachhead, and softening nearby enemy entrenchment. They also act as a forward supply point you can expand cheaply from.
-- **Bombard** — 250 influence. An aimed strike (on a cooldown) that blasts a neutral crater out of enemy territory anywhere within your supply range, stripping their cells, entrenchment and structures. Outposts extend its reach.
+## 📸 Screenshots
 
-### Modes & difficulty
+| The battlefield | Bomb incoming |
+|---|---|
+| ![Gameplay — territories colliding around rock barriers](screenshots/gameplay.png) | ![Aiming a bomb at enemy territory](screenshots/bomb.png) |
 
-- **Timed** — most territory when the clock runs out wins.
-- **Battle royale** — no timer, last one standing wins.
-- **Difficulty** — pick **Easy**, **Normal**, or **Hard** on the start screen. Harder bots act faster, commit more influence, press the attack, and build farms and outposts of their own.
+<details>
+<summary>Start screen (colours, opponents, difficulty, mode)</summary>
 
-The map is carved up by impassable **rock barriers** — expansion routes around them, so you can't snipe straight across open ground at a distant node or rival. Fresh barriers also form during the round, so choke points shift over time.
+![Setup screen](screenshots/setup.png)
 
-Each round opens with a short **spawn phase** where you pick your starting location before the map goes live.
+</details>
 
-## Controls
+## 🎯 The whole game in 10 seconds
+
+You have **influence**. It buys land — one point per cell. Land and captured **nodes** make more influence. Hold the most ground when the clock stops (**Classic**) or be the last one standing (**Battle royale**). Everything else is spice.
+
+- **Bright** enemy land is fresh, soft, and cheap to take. **Dark** land is dug in and expensive.
+- Nodes 🎯 pay income, raise your influence cap, and extend your reach. Steal an enemy's for a fat bonus.
+- Grey **rock barriers** ⬜ carve up the map — impassable, and new ones form *mid-round*. No sniping across open ground.
+- Lose your **base** ⭐ and your income drops 30% until you rebuild.
+
+## 🧰 Your toolbar
+
+| Key | Tool | Cost | What it does |
+|:---:|------|-----:|--------------|
+| `1` | **Wall** | 20 | 25 durability. Attacks chip it down and leave visible **cracks**. (`Ctrl`+click also paints) |
+| `2` | **Farm** | 400 | +120 influence every 15s, raises your cap. Economy engine. |
+| `3` | **Outpost** | 300 | Chews up to 40 cells every 12s, prefers enemy land, acts as a **forward supply point**. Spearhead. |
+| `4` | **Bomb** | 250 | Blast a crater out of enemy territory anywhere in supply range. On a cooldown. Outposts extend its reach. |
+
+## 🕹️ Controls
 
 | | PC | Mobile |
 |---|---|---|
-| Grow territory | Click toward target | Tap toward target |
-| Pan | Drag | One-finger drag |
-| Zoom | Mouse wheel | Pinch |
-| Paint walls | `Ctrl` + click | Wall button, then tap |
+| Grow | Click toward target | Tap toward target |
+| Pan / Zoom | Drag / wheel (WASD too) | Drag / pinch |
+| Tools | Keys `1`–`4` or bottom bar | Bottom bar |
 | Jump | Click minimap | Tap minimap |
 
-## Project structure
+## 🤖 Modes & bots
+
+- **Classic** — most territory when the clock runs out wins.
+- **Battle royale** — no timer, last one standing wins.
+- **Difficulty** — Easy / Normal / Hard. Harder bots think faster, commit harder, and build farms and outposts of their own. Up to **99** opponents, if you're feeling brave.
+
+## 🗂️ Project structure
 
 ```
 .
@@ -47,27 +74,28 @@ Each round opens with a short **spawn phase** where you pick your starting locat
 ├── influence.html  # game markup
 ├── influence.css   # game styles
 ├── influence.js    # game logic
+├── screenshots/    # README images
 └── favicon.svg
 ```
 
-Everything is self-contained vanilla HTML, CSS, and JavaScript — no build step, no dependencies, no framework. Open `influence.html` directly in a browser or serve the folder statically.
+Self-contained vanilla HTML/CSS/JS — no build step, no dependencies, no framework.
 
-## Running locally
+## 🚀 Running locally
 
-Just open the files, or serve them with any static server, e.g.:
+Open `influence.html` in a browser, or serve the folder:
 
 ```
 npx serve .
 ```
 
-## Deployment
+## 🔧 Tuning
 
-Hosted via GitHub Pages directly from this repo. Pushing to the default branch updates the live site.
+All game balance lives in the `CONFIG` object at the top of `influence.js` — map size, node count, incomes, costs, wall durability, barrier density, bot difficulty profiles (`DIFFS`). Tweak and reload.
 
-## Tuning
+## 📦 Deployment
 
-Game balance lives in a single `CONFIG` object at the top of `influence.js` — map size (`COLS`/`ROWS`), node count, round length, income rates, structure costs, and so on. Adjust and reload, no build step required.
+Hosted on GitHub Pages straight from this repo — push to `main` and the live site updates.
 
-## Feedback
+## 💬 Feedback
 
-This is an active beta — bugs, ideas, and balance feedback are welcome. Reach out on Discord: [@evropiani](https://discord.com/users/319246364246540288/)
+It's a beta — expect things to change, break, and get better. Ideas, bugs, balance gripes: [@evropiani on Discord](https://discord.com/users/319246364246540288/).
