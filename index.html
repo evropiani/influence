@@ -35,10 +35,33 @@
   ul{list-style:none;margin:8px 0}
   li{position:relative;padding-left:20px;margin:8px 0;color:#d4dae5}
   li::before{content:"";position:absolute;left:2px;top:10px;width:6px;height:6px;border-radius:50%;background:var(--accent)}
+  ol.steps{counter-reset:s;list-style:none;margin:8px 0}
+  .steps li{padding-left:34px;margin:12px 0}
+  .steps li::before{counter-increment:s;content:counter(s);top:2px;left:0;width:22px;height:22px;border-radius:6px;
+    background:var(--panel);color:var(--ink);font-family:var(--mono);font-size:12px;font-weight:700;
+    display:flex;align-items:center;justify-content:center}
 
   .kbd{display:inline-block;font-family:var(--mono);font-size:12px;font-weight:700;color:var(--ink);
     background:var(--panel);border:1px solid var(--line);border-bottom-width:2px;border-radius:6px;
     padding:1px 8px;margin-right:2px;vertical-align:baseline}
+
+  .cat{font-family:var(--mono);font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);
+    margin:30px 0 12px;display:flex;align-items:center;gap:12px}
+  .cat::after{content:"";flex:1;height:1px;background:var(--line)}
+
+  details.acc{background:var(--card);border:1px solid var(--line);border-radius:14px;margin-bottom:10px}
+  details.acc summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:10px;padding:16px 20px;
+    font-family:var(--mono);font-size:14px;letter-spacing:.05em;text-transform:uppercase;font-weight:700;user-select:none}
+  details.acc summary::-webkit-details-marker{display:none}
+  details.acc summary::before{content:"";width:10px;height:10px;border-radius:2px;background:var(--accent);flex:none}
+  details.acc summary .cost{color:var(--muted);font-weight:400;font-size:12px;margin-left:4px}
+  details.acc summary::after{content:"+";margin-left:auto;color:var(--muted);font-size:19px;line-height:1;flex:none}
+  details.acc[open] summary::after{content:"–"}
+  details.acc summary:hover{color:var(--accent)}
+  details.acc .inner{padding:0 20px 18px}
+
+  img.shot{width:100%;border-radius:10px;border:1px solid var(--line);margin:12px 0 4px;display:block}
+  .caption{font-size:12px;color:var(--muted);margin:4px 0 8px;font-family:var(--mono)}
 
   .two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
   .sub{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
@@ -74,78 +97,185 @@
     <p class="lead">You have <span class="accent">influence</span>. It buys land, one point per cell. Land and <span class="accent">nodes</span> make more influence. Hold the most ground when the clock stops — or be the last one standing. That's it. Everything below is spice.</p>
   </section>
 
-  <section>
-    <h2>Controls</h2>
-    <div class="two">
-      <div>
-        <div class="sub">PC</div>
-        <ul>
-          <li><b>Click</b> toward where you want to grow.</li>
-          <li><b>Drag</b> to pan · <b>wheel</b> to zoom · <b>WASD</b> works too.</li>
-          <li><span class="kbd">1</span><span class="kbd">2</span><span class="kbd">3</span><span class="kbd">4</span> toggle Wall / Farm / Outpost / Bomb.</li>
-          <li><b>Ctrl+click</b> also paints walls, old-school.</li>
-        </ul>
-      </div>
-      <div>
-        <div class="sub">Mobile</div>
-        <ul>
-          <li><b>Tap</b> toward where you want to grow.</li>
-          <li><b>Drag</b> to pan · <b>pinch</b> to zoom.</li>
-          <li>Tools live in the bottom bar.</li>
-          <li>Tap the <b>minimap</b> to jump around.</li>
-        </ul>
+  <div class="cat">Learn the basics</div>
+
+  <details class="acc" open>
+    <summary>Controls</summary>
+    <div class="inner">
+      <div class="two">
+        <div>
+          <div class="sub">PC</div>
+          <ul>
+            <li><b>Click</b> toward where you want to grow.</li>
+            <li><b>Drag</b> to pan · <b>wheel</b> to zoom · <b>WASD</b> works too.</li>
+            <li><span class="kbd">1</span><span class="kbd">2</span><span class="kbd">3</span><span class="kbd">4</span> toggle Wall / Farm / Outpost / Bomb.</li>
+            <li><b>Ctrl+click</b> also paints walls, old-school.</li>
+          </ul>
+        </div>
+        <div>
+          <div class="sub">Mobile</div>
+          <ul>
+            <li><b>Tap</b> toward where you want to grow.</li>
+            <li><b>Drag</b> to pan · <b>pinch</b> to zoom.</li>
+            <li>Tools live in the bottom bar.</li>
+            <li>Tap the <b>minimap</b> to jump around.</li>
+          </ul>
+        </div>
       </div>
     </div>
-  </section>
+  </details>
 
-  <section>
-    <h2>Nodes are your wallet</h2>
-    <p><span class="node"></span> The ringed dots on the map. Grow over one to capture it. Each node pays you influence, raises your <b>cap</b>, and extends how far you can push cheaply. Stealing an enemy's node pays a <span class="accent">fat bonus</span> and starves them.</p>
-    <p>The <b>Commit slider</b> sets how hard each tap swings — low for careful pokes, high to throw everything at one push.</p>
-  </section>
-
-  <section>
-    <h2>Fighting</h2>
-    <p>Empty land costs <b>1</b> per cell. Enemy land costs more the longer they've held it:</p>
-    <div class="swatches">
-      <div class="demo"><span class="box" style="background:#3a8f86"></span><span class="t">Bright<small>fresh · soft · cheap</small></span></div>
-      <div class="demo"><span class="box" style="background:#245953"></span><span class="t">Dark<small>dug in · tough · pricey</small></span></div>
+  <details class="acc">
+    <summary>Growing &amp; fighting</summary>
+    <div class="inner">
+      <p>Empty land costs <b>1</b> influence per cell. Enemy land costs more the longer they've held it:</p>
+      <div class="swatches">
+        <div class="demo"><span class="box" style="background:#3a8f86"></span><span class="t">Bright<small>fresh · soft · cheap</small></span></div>
+        <div class="demo"><span class="box" style="background:#245953"></span><span class="t">Dark<small>dug in · tough · pricey</small></span></div>
+      </div>
+      <p>The <b>Commit slider</b> sets how hard each tap swings — low for careful pokes, high to throw everything at one push.</p>
+      <p>Hit the <span class="accent">bright seams</span>, don't grind into dark cores. And pushing far from your nodes costs extra — capture your way forward instead of lunging across the map.</p>
     </div>
-    <p>Hit the <span class="accent">bright seams</span>. Don't grind into dark cores. And pushing far from your nodes costs extra — capture your way forward instead of lunging across the map.</p>
-  </section>
+  </details>
 
-  <section>
-    <h2>Your toolbar</h2>
-    <ul>
-      <li><span class="kbd">1</span> <b>Wall</b> (<span class="accent">20</span>) — has <span class="accent">25 durability</span>. Attacks chip away at it and leave visible <b>cracks</b>, so you can see a wall about to give.</li>
-      <li><span class="kbd">2</span> <b>Farm</b> (<span class="accent">400</span>) — pays <span class="accent">+120</span> every 15s and raises your cap. Your economy engine.</li>
-      <li><span class="kbd">3</span> <b>Outpost</b> (<span class="accent">300</span>) — chews up to <span class="accent">40 cells</span> every 12s, prefers enemy land, and acts as a <b>forward supply point</b>. Your spearhead.</li>
-      <li><span class="kbd">4</span> <b>Bomb</b> (<span class="accent">250</span>) — aim anywhere in supply range and blast a crater out of enemy territory: cells, walls and buildings gone. On a cooldown. Outposts extend its reach.</li>
-    </ul>
-  </section>
+  <details class="acc">
+    <summary>Nodes &amp; your base</summary>
+    <div class="inner">
+      <p><span class="node"></span> Nodes are the ringed dots on the map. Grow over one to capture it. Each node pays you influence, raises your <b>cap</b>, and extends how far you can push cheaply. Stealing an enemy's node pays a <span class="accent">fat bonus</span> and starves them.</p>
+      <p>The <b>star</b> is your base. Lose it and your income drops <span class="accent">30%</span>. To rebuild: fully entrench a node (it'll glow), tap it, pay <span class="accent">300</span>. Back in business.</p>
+    </div>
+  </details>
 
-  <section>
-    <h2>The map fights back</h2>
-    <p>Grey <b>rock barriers</b> carve up the map — you can't own them or cross them, so armies flow around like water. New barriers keep forming <b>mid-round</b>. A lane that's open now might not stay open. Plan accordingly.</p>
-  </section>
+  <details class="acc">
+    <summary>Barriers — the map fights back</summary>
+    <div class="inner">
+      <p>Grey <b>rock barriers</b> carve up the map — you can't own them or cross them, so armies flow around like water. New barriers keep forming <b>mid-round</b>. A lane that's open now might not stay open. Plan accordingly.</p>
+    </div>
+  </details>
 
-  <section>
-    <h2>Your base</h2>
-    <p>The <b>star</b> is your base. Lose it and your income drops <span class="accent">30%</span>. To rebuild: fully entrench a node (it'll glow), tap it, pay <span class="accent">300</span>. Back in business.</p>
-  </section>
+  <div class="cat">Your tools</div>
 
-  <section>
-    <h2>Modes &amp; bots</h2>
-    <ul>
-      <li><b>Classic</b> — most territory when the clock runs out.</li>
-      <li><b>Battle royale</b> — no clock, last one standing.</li>
-      <li><b>The Zone</b> — a circular map that collapses in <span class="accent">5 phases</span>, 2 minutes each. A <span class="accent">red ring</span> shows where the zone moves next — and it's <b>never quite the middle</b> — 20 seconds before it shrinks. Anything caught outside is crushed: land, walls, buildings, even <b>nodes</b> (and their cap and income go with them). Hug the edge at your own risk.</li>
-      <li><b>2v2 / 3v3</b> — team up with bot allies who share <b>your colour</b>. You can't take a teammate's land, your bombs and outposts spare them, and their nodes extend <b>your</b> reach. Team with the most combined ground wins — or wipe the other side out.</li>
-    </ul>
-    <p>Pick <span class="accent">Easy</span>, <span class="accent">Normal</span> or <span class="accent">Hard</span> bots — harder ones think faster, hit harder, and build farms and outposts of their own. Up to <b>99</b> of them, if you're feeling brave.</p>
-  </section>
+  <details class="acc">
+    <summary><span class="kbd">1</span> Wall <span class="cost">· 20</span></summary>
+    <div class="inner">
+      <p>A wall has <span class="accent">25 durability</span>. Attackers must chip through it before they can take the cell — every point of influence they throw at it knocks off a point of durability, and the damage shows as <b>cracks</b>.</p>
+      <img class="shot" src="screenshots/wall.png" alt="Wall line showing crack progression from intact to nearly broken" loading="lazy">
+      <p class="caption">Top walls: fresh. Bottom walls: one hit from crumbling.</p>
+      <ol class="steps">
+        <li>Press <span class="kbd">1</span> (or hold <b>Ctrl</b>) and click cells inside your territory to paint walls.</li>
+        <li>Wall the <b>chokepoints</b> — gaps between barriers, the ring around your base and farms. Don't wall everything; 20 each adds up.</li>
+        <li>Watch for cracks on your own walls and re-wall behind them before they break.</li>
+      </ol>
+    </div>
+  </details>
 
-  <section>
+  <details class="acc">
+    <summary><span class="kbd">2</span> Farm <span class="cost">· 400</span></summary>
+    <div class="inner">
+      <p>Pays <span class="accent">+120 influence every 15s</span> and raises your influence cap by 40. It pays for itself in under a minute — the earlier you build it, the more it prints.</p>
+      <img class="shot" src="screenshots/farm.png" alt="A farm built inside friendly territory near the base" loading="lazy">
+      <ol class="steps">
+        <li>Press <span class="kbd">2</span>, then click a cell <b>deep inside</b> your territory.</li>
+        <li>Build the first one as soon as you can spare 400 without stalling your expansion.</li>
+        <li>Protect it — if the cell is captured, bombed or crushed, the farm is gone.</li>
+      </ol>
+    </div>
+  </details>
+
+  <details class="acc">
+    <summary><span class="kbd">3</span> Outpost <span class="cost">· 300</span></summary>
+    <div class="inner">
+      <p>Every 12 seconds it claims up to <span class="accent">40 cells</span> around itself, <b>preferring enemy land</b>, leaving a defended beachhead and softening nearby entrenchment. It's also a <b>forward supply point</b>: you can expand (and bomb) cheaply around it, the same as around a node.</p>
+      <img class="shot" src="screenshots/outpost.png" alt="An outpost at the frontier splashing captured cells into enemy territory" loading="lazy">
+      <p class="caption">The triangle is the outpost — see the red splash chewing into teal land.</p>
+      <ol class="steps">
+        <li>Press <span class="kbd">3</span>, then click a cell <b>at your frontier</b>, facing the enemy.</li>
+        <li>Let it grind: it erodes their dark, entrenched cells that would cost you a fortune to take by hand.</li>
+        <li>Chain outposts forward to extend your reach across the map.</li>
+      </ol>
+    </div>
+  </details>
+
+  <details class="acc">
+    <summary><span class="kbd">4</span> Bomb <span class="cost">· 250</span></summary>
+    <div class="inner">
+      <p>An aimed strike. Blasts a crater out of enemy territory — their cells, walls and buildings are wiped (nodes survive). Works anywhere <b>within your supply range</b>, on a <span class="accent">25s cooldown</span>.</p>
+      <img class="shot" src="screenshots/bomb.png" alt="Aiming reticle of a bomb hovering over enemy territory" loading="lazy">
+      <p class="caption">Orange ring = valid target. Red ring = out of range or still recharging.</p>
+      <ol class="steps">
+        <li>Press <span class="kbd">4</span> — a reticle follows your cursor.</li>
+        <li>Aim at a <b>dark, dug-in blob</b> or a farm cluster and click. The crater is neutral ground: cheap to walk into.</li>
+        <li>Outposts extend your supply range — an outpost + bomb combo reaches deep behind enemy lines.</li>
+      </ol>
+    </div>
+  </details>
+
+  <div class="cat">Game modes — tutorials</div>
+
+  <details class="acc" open>
+    <summary>Classic</summary>
+    <div class="inner">
+      <p>The clock race: <b>most territory when time runs out wins</b>.</p>
+      <img class="shot" src="screenshots/gameplay.png" alt="Classic mode: territories colliding around rock barriers" loading="lazy">
+      <ol class="steps">
+        <li><b>Spawn smart</b> (10s): pick a spot near 2–3 nodes, away from rivals.</li>
+        <li><b>First minute:</b> capture the nearby nodes — income, cap and reach all come from them.</li>
+        <li><b>Build a farm</b> once you can spare 400. It pays for itself in ~50 seconds.</li>
+        <li><b>Mid game:</b> push bright seams, wall your chokepoints, plant an outpost toward your main rival.</li>
+        <li><b>Last minute:</b> territory only counts at 0:00 — dump your whole bar, bomb the biggest enemy blob, and grab everything you can.</li>
+      </ol>
+    </div>
+  </details>
+
+  <details class="acc">
+    <summary>Battle royale</summary>
+    <div class="inner">
+      <p>No clock. <b>Lose all your land and you're out — last one standing wins.</b></p>
+      <img class="shot" src="screenshots/royale.png" alt="Battle royale: eliminated players shown greyed out in the scoreboard" loading="lazy">
+      <p class="caption">Greyed-out names in the scoreboard are already eliminated.</p>
+      <ol class="steps">
+        <li><b>Survive first, win later.</b> You can't be voted out of a clock — only starved to zero cells. Don't overextend early.</li>
+        <li>Spawn away from the crowd and let the bots maul each other.</li>
+        <li>Build a tight economy: nodes, farms, and walls around your core.</li>
+        <li>Strike players who just lost a fight — their fresh land is bright and cheap.</li>
+        <li>When someone's eliminated, their leftover ground is free real estate. Snowball it.</li>
+      </ol>
+    </div>
+  </details>
+
+  <details class="acc">
+    <summary>The Zone</summary>
+    <div class="inner">
+      <p>A circular map that <b>collapses five times</b>, two minutes per phase — and never quite toward the middle.</p>
+      <img class="shot" src="screenshots/zone.png" alt="The Zone: circular map after the first collapse with the next red ring showing" loading="lazy">
+      <p class="caption">Scorched ground outside the circle is gone for good. The red ring is the next safe zone.</p>
+      <ol class="steps">
+        <li>The <span class="accent">red ring</span> appears <b>20 seconds</b> before each collapse and shows exactly where the map shrinks to.</li>
+        <li><b>Crushed nodes are deleted</b> — their income and cap vanish from whoever owns them. Don't build your economy near the edge.</li>
+        <li>When the ring appears, <b>move immediately</b>: push territory into the ring, abandon what's outside.</li>
+        <li>Getting crushed to zero cells eliminates you, same as royale — the zone kills more players than the players do.</li>
+        <li>After the fifth collapse: a <b>60-second final countdown</b> — most ground inside the last circle wins.</li>
+      </ol>
+    </div>
+  </details>
+
+  <details class="acc">
+    <summary>Teams — 2v2 &amp; 3v3</summary>
+    <div class="inner">
+      <p>Bot allies who share <b>your colour</b> against a matched enemy team. <b>Most combined ground wins</b> — or wipe the other team out.</p>
+      <img class="shot" src="screenshots/teams.png" alt="3v3 team match: two colour blocks colliding at a frontline" loading="lazy">
+      <p class="caption">One colour per team — your allies are literally on your side of the map.</p>
+      <ol class="steps">
+        <li>Pick <b>2v2</b> or <b>3v3</b> on the start screen (the opponents field is fixed in team play).</li>
+        <li><b>You can't hurt teammates</b> — expansion, bombs and outposts all spare them. Push through the gaps they leave.</li>
+        <li>Ally nodes and outposts extend <b>your</b> supply range — expanding along your ally's territory lets you strike deep.</li>
+        <li>Pincer: split an enemy between you and an ally and eat both flanks at once.</li>
+        <li>The result screen scores by <b>team totals</b> — a fed ally wins games too. Don't hog every node.</li>
+      </ol>
+    </div>
+  </details>
+
+  <section style="margin-top:26px">
     <h2>Cheat sheet</h2>
     <ul>
       <li>Grab nearby nodes first. Always.</li>

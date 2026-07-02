@@ -22,13 +22,19 @@
 
 ## 📸 Screenshots
 
-| The battlefield | Bomb incoming |
+| The battlefield (Classic) | Bomb incoming |
 |---|---|
 | ![Gameplay — territories colliding around rock barriers](screenshots/gameplay.png) | ![Aiming a bomb at enemy territory](screenshots/bomb.png) |
+
+| Teams (3v3) — one colour per side | Outpost chewing into enemy land |
+|---|---|
+| ![3v3 team match — two colour blocks colliding](screenshots/teams.png) | ![Outpost splashing a beachhead into enemy territory](screenshots/outpost.png) |
 
 **The Zone** — the red ring shows where the map collapses next:
 
 ![The Zone mode — circular map with the red warning ring](screenshots/zone.png)
+
+> 📚 **Every mode and every tool has a step-by-step illustrated tutorial on the [How to Play page](https://evropiani.github.io/influence/).**
 
 <details>
 <summary>Start screen (colours, opponents, difficulty, mode)</summary>
