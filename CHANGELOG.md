@@ -2,6 +2,11 @@
 
 All notable changes to **Influence**, newest first. The latest day's changes are also shown in the "Latest changes" box on the [How to Play page](https://evropiani.github.io/influence/).
 
+## 2026-07-03
+
+- **Bomb fix**: craters now stay **scorched for 10 seconds** — the burning ground is visible on the map, and the player you bombed can't flood back in while it burns (you and your teammates can). Previously the victim usually re-took the crater within a second or two, which made every bomb after the first feel like it did nothing.
+- The "Full changelog" link on the how-to page now stays on the same site.
+
 ## 2026-07-02
 
 - **New mode — The Zone**: a circular map that collapses in 5 phases (2 minutes each) toward a **random** point. A red warning ring appears 20 seconds before each collapse, on the map and minimap. Crushed ground is destroyed — land, walls, buildings, and **nodes**, which take their income and cap with them. After the fifth collapse, a 60-second final countdown decides the winner by territory.

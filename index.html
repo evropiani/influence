@@ -103,17 +103,13 @@
   </header>
 
   <details class="acc latest">
-    <summary>Latest changes <span class="when">· 2026-07-02</span></summary>
+    <summary>Latest changes <span class="when">· 2026-07-03</span></summary>
     <div class="inner">
       <ul>
-        <li><b>Two new modes:</b> The Zone (a circular map that collapses toward a random spot, 5 phases with a red warning ring) and Teams 2v2 / 3v3 (allies in your colour, no friendly fire).</li>
-        <li><b>New tool:</b> Bomb (250) — aimed strike on a cooldown. Renamed from "Bombard"; mode "Timed" is now "Classic".</li>
-        <li><b>Bot difficulty:</b> Easy / Normal / Hard — harder bots build farms and outposts of their own.</li>
-        <li><b>Hotkeys:</b> <span class="kbd">1</span><span class="kbd">2</span><span class="kbd">3</span><span class="kbd">4</span> toggle Wall / Farm / Outpost / Bomb.</li>
-        <li><b>Walls reworked:</b> 25 durability — attacks chip them down and leave visible cracks.</li>
-        <li>This page was rebuilt with illustrated tutorials for every mode and tool.</li>
+        <li><b>Bomb fixed:</b> craters now <b>burn for 10 seconds</b> — visible scorched ground the bombed player can't instantly flood back into. You can, though. Bomb, then pour in.</li>
+        <li>The "Full changelog" link below now stays on this site.</li>
       </ul>
-      <p style="margin-top:10px"><a class="cl" href="https://github.com/evropiani/influence/blob/main/CHANGELOG.md">Full changelog →</a></p>
+      <p style="margin-top:10px"><a class="cl" href="CHANGELOG.md">Full changelog →</a></p>
     </div>
   </details>
 
@@ -224,7 +220,7 @@
   <details class="acc">
     <summary><span class="kbd">4</span> Bomb <span class="cost">· 250</span></summary>
     <div class="inner">
-      <p>An aimed strike. Blasts a crater out of enemy territory — their cells, walls and buildings are wiped (nodes survive). Works anywhere <b>within your supply range</b>, on a <span class="accent">25s cooldown</span>.</p>
+      <p>An aimed strike. Blasts a crater out of enemy territory — their cells, walls and buildings are wiped (nodes survive). Works anywhere <b>within your supply range</b>, on a <span class="accent">25s cooldown</span>. The crater <b>burns for 10 seconds</b>: the player you hit can't take it back while it's scorched, but <b>you can</b> — bomb, then pour in.</p>
       <img class="shot" src="screenshots/bomb.png" alt="Aiming reticle of a bomb hovering over enemy territory" loading="lazy">
       <p class="caption">Orange ring = valid target. Red ring = out of range or still recharging.</p>
       <ol class="steps">

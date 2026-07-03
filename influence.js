@@ -20,7 +20,7 @@ const CONFIG = {
   FARM_COST:400, FARM_PERIOD:15, FARM_YIELD:120, CAP_PER_FARM:40,
   OUTPOST_COST:300, OUTPOST_PERIOD:12, OUTPOST_SHOTS:40, OUTPOST_RADIUS:16,
   OUTPOST_BEACHHEAD:2, OUTPOST_ERODE:2, OUTPOST_SUPPLY:true,
-  BOMBARD_COST:250, BOMBARD_RADIUS:6, BOMBARD_COOLDOWN:25,
+  BOMBARD_COST:250, BOMBARD_RADIUS:6, BOMBARD_COOLDOWN:25, BOMB_SCORCH:10,
   OBSTACLES:true, OBSTACLE_CLUSTERS:42, OBSTACLE_LEN_MIN:12, OBSTACLE_LEN_MAX:40,
   OBSTACLE_THICK_MIN:1, OBSTACLE_THICK_MAX:2.6, OBSTACLE_NODE_GAP:3, OBSTACLE_INTERVAL:16,
   ZONE_PHASES:5, ZONE_CALM:85, ZONE_WARN:20, ZONE_SHRINK:15, ZONE_FACTOR:0.62, ZONE_FINAL:60,
@@ -84,6 +84,9 @@ const keys=new Set();
 let lastCursorCell=null;
 const wall=new Uint8Array(N);
 const blocked=new Uint8Array(N);
+const scorchUntil=new Float32Array(N);   // sim-time until which a bombed cell stays scorched
+const scorchBy=new Int16Array(N);        // who dropped the bomb (only they/team may claim it)
+let simTime=0;
 let builds=[];
 const structAt=new Map();
 let phase="over";
@@ -145,6 +148,7 @@ function expandToward(pIdx, tx, ty, budgetCap){
     const idx=hpop()[1];
     if(owner[idx]===pIdx) continue;
     if(owner[idx]>=0 && sameTeam(owner[idx],pIdx)) continue;   // never take a teammate's land
+    if(scorchUntil[idx]>simTime && !(pIdx===scorchBy[idx]||sameTeam(pIdx,scorchBy[idx]))) continue;   // bomb craters belong to the bomber while they burn
     const c=idx%COLS, r=(idx/COLS)|0;
     const enemy = owner[idx]>=0;
     const wallHp = enemy ? wall[idx] : 0;                  // wall stores remaining durability
@@ -187,7 +191,7 @@ function makeBase(nIdx, pIdx){
   return true;
 }
 
-function clearGrid(){ owner.fill(-1); cellNode.fill(-1); stamp.fill(0); defense.fill(0); wall.fill(0); blocked.fill(0); gen=0; nodes=[]; flashes=[]; builds=[]; structAt.clear(); }
+function clearGrid(){ owner.fill(-1); cellNode.fill(-1); stamp.fill(0); defense.fill(0); wall.fill(0); blocked.fill(0); scorchUntil.fill(0); scorchBy.fill(-1); simTime=0; gen=0; nodes=[]; flashes=[]; builds=[]; structAt.clear(); }
 function farFromNodes(cx,cy,minD){ for(const nd of nodes){ const dx=nd.cx-cx,dy=nd.cy-cy; if(dx*dx+dy*dy<minD*minD) return false; } return true; }
 function scatterNeutralNodes(){
   let guard=0;
@@ -352,6 +356,7 @@ function outpostFire(b){
     if(cx<0||cy<0||cx>=COLS||cy>=ROWS) continue;
     const idx=cy*COLS+cx;
     if(blocked[idx]||cellNode[idx]>=0) continue;
+    if(scorchUntil[idx]>simTime && !(own===scorchBy[idx]||sameTeam(own,scorchBy[idx]))) continue;   // respect burning craters
     const prev=owner[idx];
     if(prev===own || (prev>=0 && sameTeam(prev,own))) continue;   // outposts spare teammates
     (prev>=0?enemyCells:emptyCells).push(idx);
@@ -379,6 +384,7 @@ function bombard(cx,cy,own){
     if(prev<0 || prev===own || blocked[idx] || cellNode[idx]>=0) continue;   // only rival land, spare nodes
     if(sameTeam(prev,own)) continue;                                          // bombs spare teammates
     owner[idx]=-1; defense[idx]=0; if(wall[idx]) wall[idx]=0;
+    scorchUntil[idx]=simTime+CONFIG.BOMB_SCORCH; scorchBy[idx]=own;           // crater burns: victim can't take it back yet
     players[prev].cells--;
     const s=structAt.get(idx); if(s){ s.alive=false; structAt.delete(idx); if(s.type==="farm"&&players[s.owner]) players[s.owner].farmCount--; }
   }
@@ -518,6 +524,7 @@ function botTurn(pl, now){
 }
 
 function step(dt){
+  simTime+=dt;
   for(let i=0;i<N;i++){ if(owner[i]>=0){ const d=defense[i]+CONFIG.DEF_RATE*dt; defense[i]=d>CONFIG.DEF_MAX?CONFIG.DEF_MAX:d; } }
 
   const now=performance.now();
@@ -686,6 +693,9 @@ function render(){
         } else if(blocked[idx]===2){
           const sx=(c*CELL-cam.x)*cam.zoom;
           ctx.fillStyle="rgb(24,14,17)"; ctx.fillRect(sx, sy, cw+1, cw+1);                      // zone void: scorched dead ground
+        } else if(scorchUntil[idx]>simTime){
+          const sx=(c*CELL-cam.x)*cam.zoom;
+          ctx.fillStyle="rgb(58,36,26)"; ctx.fillRect(sx, sy, cw+1, cw+1);                      // burning bomb crater
         }
         continue;
       }
@@ -898,6 +908,7 @@ function updateHUD(){
       const idx=cy*COLS+cx, ow=owner[idx], pen=supplyPenalty(cx,cy,0);
       if(blocked[idx]) cellInfo.textContent="barrier · impassable";
       else if(ow===0) cellInfo.textContent = wall[idx]?`your wall · ${wall[idx]}/${CONFIG.WALL_HP}`:"your land";
+      else if(ow<0 && scorchUntil[idx]>simTime) cellInfo.textContent=`crater · burning ${Math.ceil(scorchUntil[idx]-simTime)}s`;
       else if(ow<0) cellInfo.textContent=`empty · ${1+pen}/cell`;
       else cellInfo.textContent=`enemy · ${enemyCost(idx)+wall[idx]+pen}/cell`;
     } else cellInfo.textContent="";

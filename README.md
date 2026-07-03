@@ -2,12 +2,11 @@
 
 # I N F L U E N C E
 
-🟥🟥🟥🟥⬛⬛🟦🟦🟦⬛⬛⬛🟨🟨🟨🟨🟨🟨
-🟥🟥🟥⬛⬛🟦🟦🟦🟦🟦⬛🟨🟨🟨🟨🟨🟨🟨
-🟥🟥⬛⬜⬜⬜⬛🟦🟦🟦⬛⬛🟨🟨🟨🟨🟨🟨
-⬛⬛⬜⬜⬛⬛⬛⬛🟦🟦🟦⬛⬛⬛🟪🟪🟪🟪
-🟩🟩⬛⬛⬛🟧🟧🟧🟧⬛🟦🟦⬛🟪🟪🟪🟪🟪
-🟩🟩🟩🟩⬛🟧🟧🟧🟧🟧⬛⬛🟪🟪🟪🟪🟪🟪
+🟥🟥🟥⬛🟧⬛⬛🟧⬛🟨🟨🟨⬛🟩⬛⬛⬛🟦⬛⬛🟦⬛🟪🟪🟪⬛🟥⬛⬛🟥⬛⬛🟧🟧⬛🟨🟨🟨<br>
+⬛🟥⬛⬛🟧🟧⬛🟧⬛🟨⬛⬛⬛🟩⬛⬛⬛🟦⬛⬛🟦⬛🟪⬛⬛⬛🟥🟥⬛🟥⬛🟧⬛⬛⬛🟨⬛⬛<br>
+⬛🟥⬛⬛🟧⬛🟧🟧⬛🟨🟨⬛⬛🟩⬛⬛⬛🟦⬛⬛🟦⬛🟪🟪⬛⬛🟥⬛🟥🟥⬛🟧⬛⬛⬛🟨🟨⬛<br>
+⬛🟥⬛⬛🟧⬛⬛🟧⬛🟨⬛⬛⬛🟩⬛⬛⬛🟦⬛⬛🟦⬛🟪⬛⬛⬛🟥⬛⬛🟥⬛🟧⬛⬛⬛🟨⬛⬛<br>
+🟥🟥🟥⬛🟧⬛⬛🟧⬛🟨⬛⬛⬛🟩🟩🟩⬛🟦🟦🟦🟦⬛🟪🟪🟪⬛🟥⬛⬛🟥⬛⬛🟧🟧⬛🟨🟨🟨
 
 **A fast browser land-grab.** Paint the map your colour, feed your economy, ruin somebody's afternoon.
 
@@ -59,7 +58,7 @@ You have **influence**. It buys land — one point per cell. Land and captured *
 | `1` | **Wall** | 20 | 25 durability. Attacks chip it down and leave visible **cracks**. (`Ctrl`+click also paints) |
 | `2` | **Farm** | 400 | +120 influence every 15s, raises your cap. Economy engine. |
 | `3` | **Outpost** | 300 | Chews up to 40 cells every 12s, prefers enemy land, acts as a **forward supply point**. Spearhead. |
-| `4` | **Bomb** | 250 | Blast a crater out of enemy territory anywhere in supply range. On a cooldown. Outposts extend its reach. |
+| `4` | **Bomb** | 250 | Blast a crater out of enemy territory anywhere in supply range. The crater burns for 10s — the victim can't reclaim it, you can. On a cooldown. Outposts extend its reach. |
 
 ## 🕹️ Controls
 
