@@ -71,6 +71,10 @@ You have **influence**. It buys land — one point per cell. Land and captured *
 | Sound | `M` or the ♪ button | ♪ button |
 | Jump | Click minimap | Tap minimap |
 
+## 👥 Play with a friend (P2P)
+
+Two humans in one match, plus bots — the browsers connect **directly to each other**, no server, no accounts. Host presses **Host** and sends the invite code to a friend; the friend presses **Join**, pastes it, and sends the reply code back; host pastes that and starts the game. Full flow on the [How to Play page](https://evropiani.github.io/influence/).
+
 ## 🤖 Modes & bots
 
 - **Classic** — most territory when the clock runs out wins.
@@ -90,6 +94,7 @@ You have **influence**. It buys land — one point per cell. Land and captured *
 ├── influence.css   # game styles
 ├── influence.js    # game logic
 ├── sound.js        # procedural music & sound effects (Web Audio)
+├── net.js          # peer-to-peer transport for friend matches (WebRTC)
 ├── changelog.html  # the changelog as a page on the site
 ├── imprint.html    # legal notice / imprint
 ├── screenshots/    # README & tutorial images

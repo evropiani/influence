@@ -25,6 +25,16 @@
         <div class="field"><label>Opponents (1–99)</label><div id="opps"></div></div>
         <div class="field"><label>Difficulty</label><div id="diff"></div></div>
         <div class="field"><label>Mode</label><div id="mode"></div></div>
+        <div class="field"><label>Play with a friend · P2P</label>
+          <div id="mpBtns"><button class="seg" id="mpHost">Host</button><button class="seg" id="mpJoin">Join</button></div>
+          <div id="mpBox" style="display:none">
+            <div class="mpl" id="mpOutL"></div>
+            <div class="mprow"><textarea id="mpOut" readonly spellcheck="false"></textarea><button class="seg" id="mpCopy">Copy</button></div>
+            <div class="mpl" id="mpInL"></div>
+            <div class="mprow"><textarea id="mpIn" spellcheck="false" placeholder="paste code here"></textarea><button class="seg" id="mpApply">Connect</button></div>
+            <div id="mpStatus"></div>
+          </div>
+        </div>
       </div>
       <div id="standings"></div>
       <button id="obtn">Start</button>
@@ -50,6 +60,7 @@
 </div>
 
 <script src="sound.js" defer></script>
+<script src="net.js" defer></script>
 <script src="influence.js" defer></script>
 </body>
 </html>

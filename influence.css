@@ -85,6 +85,14 @@
   .seg.sel{color:var(--ink);background:var(--panel-2);border-color:var(--accent)}
   .seg:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
   #mode{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
+  #mpBtns{display:flex;gap:6px;justify-content:center}
+  #mpBox{display:flex;flex-direction:column;gap:6px;align-items:center;margin-top:8px;width:min(440px,86vw)}
+  .mpl{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);align-self:flex-start}
+  .mprow{display:flex;gap:6px;width:100%;align-items:stretch}
+  #mpOut,#mpIn{flex:1;height:52px;resize:none;font-family:var(--mono);font-size:10px;color:var(--ink);
+    background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px;word-break:break-all}
+  #mpOut:focus,#mpIn:focus{outline:2px solid var(--accent);outline-offset:1px}
+  #mpStatus{font-size:11px;color:var(--accent);min-height:15px}
   .sbc{display:flex;align-items:center;gap:7px;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:5px 11px}
   .sbc .chip{width:11px;height:11px;border-radius:3px;flex:none}
   .sbc .sbk{color:var(--muted);text-transform:uppercase;font-size:10px;letter-spacing:.08em}

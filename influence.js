@@ -91,8 +91,9 @@ let simTime=0;
 let builds=[];
 const structAt=new Map();
 let phase="over";
+let MY=0;                 // which player index this client controls (guest=1 in multiplayer)
 let demo=false, demoT=0;   // attract mode: a bot-only match playing behind the menu
-let spawnLeft=0, playStart=0, obstacleTimer=0, bombardCd=0;
+let spawnLeft=0, playStart=0, obstacleTimer=0;
 let buildMode=null;
 let gameMode="timed";
 let teamSize=2;
@@ -182,7 +183,7 @@ function expandToward(pIdx, tx, ty, budgetCap){
     }
     const prev=owner[idx];
     if(wall[idx] && (prev===0||pIdx===0)) SND.play("wallBreak");
-    if(prev===0 && pIdx!==0) tookFromHuman++;
+    if(prev===MY && pIdx!==MY) tookFromHuman++;
     owner[idx]=pIdx; defense[idx]=0; if(wall[idx]) wall[idx]=0; budget-=cost; spent+=cost;
     players[pIdx].cells++; if(prev>=0) players[prev].cells--;
     const s=structAt.get(idx); if(s){ s.alive=false; structAt.delete(idx); if(s.type==="farm") players[s.owner].farmCount--; }
@@ -352,29 +353,30 @@ function makeBotColors(count, usedPreset){
   }
   return out;
 }
-function paintWall(cx,cy){
+function paintWall(cx,cy,pIdx=MY){
   if(phase!=="play") return;
   if(cx<0||cy<0||cx>=COLS||cy>=ROWS) return;
   const idx=cy*COLS+cx;
-  if(owner[idx]!==0 || wall[idx] || cellNode[idx]>=0 || structAt.has(idx)) return;
-  if(players[0].influence < CONFIG.WALL_COST){ if(!wallWarned){ flash(`Need ${CONFIG.WALL_COST} influence`); wallWarned=true; } return; }
-  wall[idx]=CONFIG.WALL_HP; players[0].influence -= CONFIG.WALL_COST;
-  SND.play("wallPlace");
+  if(owner[idx]!==pIdx || wall[idx] || cellNode[idx]>=0 || structAt.has(idx)) return;
+  if(players[pIdx].influence < CONFIG.WALL_COST){ if(pIdx===MY && !wallWarned){ flash(`Need ${CONFIG.WALL_COST} influence`); wallWarned=true; } return; }
+  wall[idx]=CONFIG.WALL_HP; players[pIdx].influence -= CONFIG.WALL_COST;
+  if(pIdx===MY) SND.play("wallPlace");
 }
-function placeBuild(cx,cy,type){
+function placeBuild(cx,cy,type,pIdx=MY){
   if(phase!=="play") return;
-  if(cx<0||cy<0||cx>=COLS||cy>=ROWS){ flash("Place inside your territory"); return; }
+  const mine=pIdx===MY;
+  if(cx<0||cy<0||cx>=COLS||cy>=ROWS){ if(mine) flash("Place inside your territory"); return; }
   const idx=cy*COLS+cx;
-  if(owner[idx]!==0){ flash("Must be your territory"); return; }
-  if(cellNode[idx]>=0 || wall[idx] || structAt.has(idx)){ flash("That spot is occupied"); return; }
+  if(owner[idx]!==pIdx){ if(mine) flash("Must be your territory"); return; }
+  if(cellNode[idx]>=0 || wall[idx] || structAt.has(idx)){ if(mine) flash("That spot is occupied"); return; }
   const cost = type==="farm"?CONFIG.FARM_COST:CONFIG.OUTPOST_COST;
-  if(players[0].influence < cost){ flash(`Need ${cost} influence`); return; }
-  players[0].influence -= cost;
-  const b={cx,cy,type,owner:0,acc:0,alive:true}; builds.push(b); structAt.set(idx,b);
-  if(type==="farm") players[0].farmCount++;
-  SND.play(type==="farm"?"farm":"outpost");
-  if(!reduceMotion) flashes.push({cx,cy,t:0,rgb:players[0].rgb,big:true});
-  flash(type==="farm"?"Farm built · +"+MODS.farmYield+"/"+CONFIG.FARM_PERIOD+"s":"Outpost built · forward supply");
+  if(players[pIdx].influence < cost){ if(mine) flash(`Need ${cost} influence`); return; }
+  players[pIdx].influence -= cost;
+  const b={cx,cy,type,owner:pIdx,acc:0,alive:true}; builds.push(b); structAt.set(idx,b);
+  if(type==="farm") players[pIdx].farmCount++;
+  if(mine){ SND.play(type==="farm"?"farm":"outpost");
+    flash(type==="farm"?"Farm built · +"+MODS.farmYield+"/"+CONFIG.FARM_PERIOD+"s":"Outpost built · forward supply"); }
+  if(!reduceMotion) flashes.push({cx,cy,t:0,rgb:players[pIdx].rgb,big:true});
 }
 function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=(Math.random()*(i+1))|0, t=a[i]; a[i]=a[j]; a[j]=t; } }
 function outpostFire(b){
@@ -400,7 +402,7 @@ function outpostFire(b){
   for(; i<enemyCells.length && shots>0; i++){ claim(enemyCells[i]); shots--; }   // eat into enemies first
   for(let j=0; j<emptyCells.length && shots>0; j++){ claim(emptyCells[j]); shots--; }
   for(; i<enemyCells.length; i++){ const idx=enemyCells[i]; if(defense[idx]>0) defense[idx]=Math.max(0,defense[idx]-CONFIG.OUTPOST_ERODE); } // soften the rest
-  if(own===0){ SND.play("outpostFire"); if(!reduceMotion) flashes.push({cx:b.cx,cy:b.cy,t:0,rgb:players[0].rgb}); }
+  if(own===MY){ SND.play("outpostFire"); if(!reduceMotion) flashes.push({cx:b.cx,cy:b.cy,t:0,rgb:players[own].rgb}); }
 }
 // Bombard: an aimed strike that blasts a neutral crater out of RIVAL territory within your supply
 // reach — strips their cells, entrenchment and structures so you can pour into the gap. On cooldown.
@@ -420,15 +422,16 @@ function bombard(cx,cy,own){
   }
   if(!reduceMotion){ flashes.push({cx,cy,t:0,rgb:[224,138,60],big:true}); flashes.push({cx,cy,t:0,rgb:[224,138,60]}); }
 }
-function tryBombard(cx,cy){
+function tryBombard(cx,cy,pIdx=MY){
   if(phase!=="play") return;
-  const me=players[0]; if(!me.alive) return;
-  if(cx<0||cy<0||cx>=COLS||cy>=ROWS){ flash("Aim on the map"); return; }
-  if(bombardCd>0){ flash(`Bomb recharging · ${Math.ceil(bombardCd)}s`); return; }
-  if(me.influence<CONFIG.BOMBARD_COST){ flash(`Need ${CONFIG.BOMBARD_COST} influence`); return; }
-  if(supplyPenalty(cx,cy,0)>0){ flash("Target out of supply range"); return; }
-  me.influence-=CONFIG.BOMBARD_COST; bombardCd=MODS.bombCd;
-  bombard(cx,cy,0); SND.play("bomb"); flash("Bombs away!");
+  const me=players[pIdx], mine=pIdx===MY; if(!me.alive) return;
+  if(cx<0||cy<0||cx>=COLS||cy>=ROWS){ if(mine) flash("Aim on the map"); return; }
+  if(me._bombCd>0){ if(mine) flash(`Bomb recharging · ${Math.ceil(me._bombCd)}s`); return; }
+  if(me.influence<CONFIG.BOMBARD_COST){ if(mine) flash(`Need ${CONFIG.BOMBARD_COST} influence`); return; }
+  if(supplyPenalty(cx,cy,pIdx)>0){ if(mine) flash("Target out of supply range"); return; }
+  me.influence-=CONFIG.BOMBARD_COST; me._bombCd=MODS.bombCd;
+  bombard(cx,cy,pIdx); netBoom(cx,cy);
+  if(mine){ SND.play("bomb"); flash("Bombs away!"); }
 }
 function spawnCellFree(cx,cy){
   if(cx<0||cy<0||cx>=COLS||cy>=ROWS) return false;
@@ -459,13 +462,15 @@ function assignSpawns(){
   if(!place(minSep)) place(CONFIG.START_R*2);
   for(let i=0;i<players.length;i++) players[i]._spawn = spawns[i] || {cx:(rand(margin,COLS-margin))|0, cy:(rand(margin,ROWS-margin))|0};
 }
-function trySetSpawn(cx,cy){
-  if(phase!=="spawn") return;
-  if(cx<0||cy<0||cx>=COLS||cy>=ROWS){ flash("Pick a spot on the map"); return; }
-  if(!spawnCellFree(cx,cy)){ flash("Too close to a node"); return; }
+function trySetSpawn(cx,cy,pIdx=MY){
+  if(phase!=="spawn") return false;
+  const mine=pIdx===MY;
+  if(cx<0||cy<0||cx>=COLS||cy>=ROWS){ if(mine) flash("Pick a spot on the map"); return false; }
+  if(!spawnCellFree(cx,cy)){ if(mine) flash("Too close to a node"); return false; }
   const sep=CONFIG.START_R*2;
-  for(let i=1;i<players.length;i++){ const s=players[i]._spawn; const dx=s.cx-cx,dy=s.cy-cy; if(dx*dx+dy*dy<sep*sep){ flash("Too close to another spawn"); return; } }
-  players[0]._spawn={cx,cy}; players[0]._spawnSet=true; flash("Spawn set");
+  for(let i=0;i<players.length;i++){ if(i===pIdx) continue; const s=players[i]._spawn; const dx=s.cx-cx,dy=s.cy-cy; if(dx*dx+dy*dy<sep*sep){ if(mine) flash("Too close to another spawn"); return false; } }
+  players[pIdx]._spawn={cx,cy}; players[pIdx]._spawnSet=true; if(mine) flash("Spawn set");
+  return true;
 }
 function beginPlay(){
   players.forEach(pl=>{ const s=pl._spawn; const bi=nodes.length;
@@ -477,22 +482,23 @@ function beginPlay(){
   spawnHint.style.display="none"; setBuildMode(null); setBuildEnabled(true);
   SND.play("go");
 }
+function buildHillMask(){
+  hillMask.fill(0); hillCells=[];
+  const r2=hillC.r*hillC.r;
+  for(let r=hillC.cy-hillC.r;r<=hillC.cy+hillC.r;r++) for(let c=hillC.cx-hillC.r;c<=hillC.cx+hillC.r;c++){
+    const dx=c-hillC.cx, dy=r-hillC.cy;
+    if(dx*dx+dy*dy<=r2){ const i=r*COLS+c; hillMask[i]=1; hillCells.push(i); }
+  }
+}
 function newRound(){
   SND.music(false);
   demo=false;
   refreshMods();
   clearGrid();
   setBuildMode(null); setBuildEnabled(false);
-  players.forEach(pl=>{ pl.cells=0; pl.nodeCount=0; pl.farmCount=0; pl.alive=true; pl.influence=CONFIG.START_INFLUENCE; pl._next=0; pl.hasBase=false; pl.baseIdx=-1; pl._spawnSet=false; pl._hill=0; });
+  players.forEach(pl=>{ pl.cells=0; pl.nodeCount=0; pl.farmCount=0; pl.alive=true; pl.influence=CONFIG.START_INFLUENCE; pl._next=0; pl.hasBase=false; pl.baseIdx=-1; pl._spawnSet=false; pl._hill=0; pl._bombCd=0; });
   hillC=null; hillCells=[]; hillCtrl=-1;
-  if(gameMode==="hill"){
-    hillC={cx:(COLS/2)|0, cy:(ROWS/2)|0, r:CONFIG.HILL_R};
-    const r2=hillC.r*hillC.r;
-    for(let r=hillC.cy-hillC.r;r<=hillC.cy+hillC.r;r++) for(let c=hillC.cx-hillC.r;c<=hillC.cx+hillC.r;c++){
-      const dx=c-hillC.cx, dy=r-hillC.cy;
-      if(dx*dx+dy*dy<=r2){ const i=r*COLS+c; hillMask[i]=1; hillCells.push(i); }
-    }
-  }
+  if(gameMode==="hill"){ hillC={cx:(COLS/2)|0, cy:(ROWS/2)|0, r:CONFIG.HILL_R}; buildHillMask(); }
   if(gameMode==="zone"){
     zone={state:"calm", phase:0, timer:CONFIG.ZONE_CALM, cur:{cx:COLS/2, cy:ROWS/2, r:Math.min(COLS,ROWS)/2-4}, next:null, from:null};
     voidOutside(zone.cur);                                   // circular battlefield from the start
@@ -500,10 +506,10 @@ function newRound(){
   scatterNeutralNodes();
   rebuildCellNode();
   scatterObstacles();
-  obstacleTimer=CONFIG.OBSTACLE_INTERVAL; bombardCd=0;
+  obstacleTimer=CONFIG.OBSTACLE_INTERVAL;
   assignSpawns();
   computeColors();
-  const h=players[0]._spawn;
+  const h=players[MY]._spawn;
   cam.zoom=CONFIG.ZOOM_START;
   cam.x=(h.cx+0.5)*CELL - (VIEW_W/cam.zoom)/2;
   cam.y=(h.cy+0.5)*CELL - (VIEW_H/cam.zoom)/2;
@@ -512,6 +518,7 @@ function newRound(){
   buildScoreboard();
   phase="spawn"; spawnLeft=CONFIG.SPAWN_SECONDS; running=true; lastT=performance.now();
   spawnHint.style.display="";
+  if(NETX.on && NETX.role==="host" && NET.connected()) hostSendInit();
 }
 
 const botDelay=()=>{ const d=botCfg.delay; return (d[0]+Math.random()*(d[1]-d[0]))*1000; };
@@ -550,9 +557,9 @@ function startDemo(){
   const defs=makeBotColors(6,false);
   players=defs.map((d,i)=>({idx:i, name:d.name, tag:"", rgb:d.rgb, isHuman:false, team:i,
     influence:CONFIG.START_INFLUENCE, alive:true, cells:0, nodeCount:0, farmCount:0, hasBase:false, baseIdx:-1,
-    _next:performance.now()+300+i*350+rand(0,400), _spawn:null, _spawnSet:false, _hill:0}));
+    _next:performance.now()+300+i*350+rand(0,400), _spawn:null, _spawnSet:false, _hill:0, _bombCd:0}));
   clearGrid(); scatterNeutralNodes(); rebuildCellNode(); scatterObstacles();
-  obstacleTimer=CONFIG.OBSTACLE_INTERVAL; bombardCd=0;
+  obstacleTimer=CONFIG.OBSTACLE_INTERVAL;
   assignSpawns(); computeColors();
   players.forEach(pl=>{ const s=pl._spawn, bi=nodes.length;
     blocked[s.cy*COLS+s.cx]=0;
@@ -648,7 +655,7 @@ function step(dt){
     else { if(b.acc>=MODS.outPeriod){ b.acc-=MODS.outPeriod; outpostFire(b); } } }
 
   if(CONFIG.OBSTACLES){ obstacleTimer-=dt; if(obstacleTimer<=0){ obstacleTimer=CONFIG.OBSTACLE_INTERVAL; spawnDynamicObstacle(); } }
-  if(bombardCd>0) bombardCd=Math.max(0,bombardCd-dt);
+  for(const pl of players){ if(pl._bombCd>0) pl._bombCd=Math.max(0,pl._bombCd-dt); }
 
   for(const pl of players){ if(!pl.alive) continue;
     let inc=pl.nodeCount*CONFIG.INCOME_PER_NODE + pl.cells*CONFIG.INCOME_PER_CELL + CONFIG.TRICKLE;
@@ -667,7 +674,7 @@ function step(dt){
 
   for(let i=flashes.length-1;i>=0;i--){ flashes[i].t+=dt; if(flashes[i].t>0.6) flashes.splice(i,1); }
 
-  if(!players[0].alive){ endRound(topPlayer()); return; }
+  if(!netActive() && !players[0].alive){ endRound(topPlayer()); return; }
   if(gameMode==="team"){
     const t0=players.some(p=>p.team===0&&p.alive), t1=players.some(p=>p.team===1&&p.alive);
     if(!t0||!t1){ endRound(topTeamPlayer(t0?0:1)); return; }
@@ -713,7 +720,7 @@ display.addEventListener("pointerdown", e=>{
   pointers.set(e.pointerId,p);
   if(pointers.size>=2){ pinchPrev=null; for(const q of pointers.values()) q.paint=false; }
   else if(phase==="play" && (buildMode==="wall" || e.ctrlKey)){
-    p.paint=true; wallWarned=false; const cc=cellFromScreen(sx,sy); paintWall(cc.cx,cc.cy);
+    p.paint=true; wallWarned=false; const cc=cellFromScreen(sx,sy); netAction("wall",{cx:cc.cx,cy:cc.cy}) || paintWall(cc.cx,cc.cy);
   }
   display.classList.add("grabbing");
 });
@@ -721,7 +728,7 @@ display.addEventListener("pointermove", e=>{
   const {sx,sy}=evScreen(e); const p=pointers.get(e.pointerId); if(p){ p.x=sx; p.y=sy; }
   lastCursorCell=cellFromScreen(sx,sy);
   if(pointers.size===1 && p){
-    if(p.paint){ p.moved=true; const cc=cellFromScreen(sx,sy); paintWall(cc.cx,cc.cy); return; }
+    if(p.paint){ p.moved=true; const cc=cellFromScreen(sx,sy); netAction("wall",{cx:cc.cx,cy:cc.cy}) || paintWall(cc.cx,cc.cy); return; }
     const dx=p.x-p.sx0, dy=p.y-p.sy0;
     if(!p.moved && Math.hypot(dx,dy)>8) p.moved=true;
     if(p.moved){ cam.x=p.camX-dx/cam.zoom; cam.y=p.camY-dy/cam.zoom; clampCam(); }
@@ -744,27 +751,28 @@ function endPointer(e){
   const p=pointers.get(e.pointerId);
   if(p && wasSingle && !p.moved){
     const {cx,cy}=cellFromScreen(p.x,p.y);
-    if(phase==="spawn"){ trySetSpawn(cx,cy); }
+    if(phase==="spawn"){ netAction("spawn",{cx,cy}) || trySetSpawn(cx,cy); }
     else if(phase==="play" && !p.paint){
-      const me=players[0];
+      const me=players[MY];
       if(me.alive){
-        if(buildMode==="farm"){ placeBuild(cx,cy,"farm"); }
-        else if(buildMode==="outpost"){ placeBuild(cx,cy,"outpost"); }
-        else if(buildMode==="bombard"){ tryBombard(cx,cy); }
+        if(buildMode==="farm"){ netAction("bld",{cx,cy,k:"farm"}) || placeBuild(cx,cy,"farm"); }
+        else if(buildMode==="outpost"){ netAction("bld",{cx,cy,k:"outpost"}) || placeBuild(cx,cy,"outpost"); }
+        else if(buildMode==="bombard"){ netAction("bomb",{cx,cy}) || tryBombard(cx,cy); }
         else {
           let handled=false;
           if(!me.hasBase && cx>=0&&cy>=0&&cx<COLS&&cy<ROWS){
             const ni=cellNode[cy*COLS+cx];
-            if(ni>=0 && nodes[ni].owner===0 && defense[cy*COLS+cx]>=CONFIG.DEF_MAX){
+            if(ni>=0 && nodes[ni].owner===MY && defense[cy*COLS+cx]>=CONFIG.DEF_MAX){
               handled=true;
-              if(me.influence>=CONFIG.BASE_COST){ makeBase(ni,0); flash("New base established"); }
+              if(me.influence>=CONFIG.BASE_COST){ netAction("base",{ni}) || (makeBase(ni,MY), flash("New base established")); }
               else flash(`Need ${CONFIG.BASE_COST} influence for a base`);
             }
           }
           if(!handled){
             const budget=Math.ceil(me.influence*commitPct/100);
             if(budget<1) flash("Not enough influence");
-            else { const got=expandToward(0,cx,cy,budget); if(got===0) flash("Can't push there yet"); else SND.play("expand",{p:Math.min(1,got/250)}); }
+            else if(!netAction("ex",{cx,cy,pct:commitPct})){
+              const got=expandToward(MY,cx,cy,budget); if(got===0) flash("Can't push there yet"); else SND.play("expand",{p:Math.min(1,got/250)}); }
           }
         }
       }
@@ -876,7 +884,7 @@ function render(){
   }
 
   const R=Math.max(4, cw*0.42);
-  const noBase=players[0] && !players[0].hasBase && phase==="play";
+  const noBase=players[MY] && !players[MY].hasBase && phase==="play";
   const tnow=performance.now();
   for(const nd of nodes){
     if(nd.dead) continue;
@@ -896,7 +904,7 @@ function render(){
       ctx.strokeStyle="rgba(255,255,255,0.85)"; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(sx,sy,R,0,Math.PI*2); ctx.stroke();
       ctx.fillStyle="rgba(255,255,255,0.9)"; ctx.beginPath(); ctx.arc(sx,sy,R*0.34,0,Math.PI*2); ctx.fill();
     }
-    if(noBase && nd.owner===0 && !nd.base && defense[nd.cy*COLS+nd.cx]>=CONFIG.DEF_MAX){
+    if(noBase && nd.owner===MY && !nd.base && defense[nd.cy*COLS+nd.cx]>=CONFIG.DEF_MAX){
       const pulse=reduceMotion?1:(0.55+0.45*Math.sin(tnow*0.006));
       ctx.strokeStyle=rgbStr([231,233,238],0.9*pulse); ctx.lineWidth=2; ctx.setLineDash([4,4]);
       ctx.beginPath(); ctx.arc(sx,sy,R*2.0,0,Math.PI*2); ctx.stroke(); ctx.setLineDash([]);
@@ -908,7 +916,7 @@ function render(){
       const sx=((s.cx+0.5)*CELL-cam.x)*cam.zoom, sy=((s.cy+0.5)*CELL-cam.y)*cam.zoom;
       if(sx<-30||sy<-30||sx>VIEW_W+30||sy>VIEW_H+30) continue;
       const col=players[i].rgb, rr=Math.max(5,cw*0.62);
-      if(i===0){
+      if(i===MY){
         const pulse=reduceMotion?1:(0.6+0.4*Math.sin(tnow*0.006));
         ctx.strokeStyle=rgbStr(col,0.5); ctx.lineWidth=2;
         ctx.beginPath(); ctx.arc(sx,sy,CONFIG.START_R*CELL*cam.zoom,0,Math.PI*2); ctx.stroke();
@@ -947,14 +955,14 @@ function render(){
     const {cx,cy}=lastCursorCell;
     if(cx>=0&&cy>=0&&cx<COLS&&cy<ROWS){
       if(buildMode==="bombard" && phase==="play"){
-        const ok = bombardCd<=0 && players[0].influence>=CONFIG.BOMBARD_COST && supplyPenalty(cx,cy,0)<=0;
+        const ok = (players[MY]._bombCd||0)<=0 && players[MY].influence>=CONFIG.BOMBARD_COST && supplyPenalty(cx,cy,MY)<=0;
         const col = ok ? [224,138,60] : [192,86,75];
         const ccx=((cx+0.5)*CELL-cam.x)*cam.zoom, ccy=((cy+0.5)*CELL-cam.y)*cam.zoom;
         ctx.strokeStyle=rgbStr(col,0.9); ctx.lineWidth=2; ctx.setLineDash([6,5]);
         ctx.beginPath(); ctx.arc(ccx,ccy,CONFIG.BOMBARD_RADIUS*CELL*cam.zoom,0,Math.PI*2); ctx.stroke(); ctx.setLineDash([]);
         ctx.fillStyle=rgbStr(col,0.16); ctx.fill();
       }
-      ctx.strokeStyle = buildMode ? rgbStr([207,122,63],0.85) : (phase==="spawn" ? rgbStr(players[0].rgb,0.8) : "rgba(231,233,238,0.5)");
+      ctx.strokeStyle = buildMode ? rgbStr([207,122,63],0.85) : (phase==="spawn" ? rgbStr(players[MY].rgb,0.8) : "rgba(231,233,238,0.5)");
       ctx.lineWidth=1.5;
       ctx.strokeRect((cx*CELL-cam.x)*cam.zoom,(cy*CELL-cam.y)*cam.zoom,cw,cw);
     }
@@ -999,7 +1007,7 @@ function buildScoreboard(){
     const el=document.createElement("div"); el.className="sbc";
     el.innerHTML=`<span class="chip"></span><span class="sbk">You</span><span class="sbv" id="sbYou">0%</span><span class="sbsep">·</span><span class="sbk">Alive</span><span class="sbv" id="sbAlive">0</span><span class="sbsep">·</span><span class="sbk">Top</span><span class="sbv" id="sbTop">0%</span>`;
     sb.appendChild(el);
-    el.querySelector(".chip").style.background=rgbStr(players[0].rgb);
+    el.querySelector(".chip").style.background=rgbStr(players[MY].rgb);
     sbYou=el.querySelector("#sbYou"); sbAlive=el.querySelector("#sbAlive"); sbTop=el.querySelector("#sbTop");
   }
 }
@@ -1017,8 +1025,8 @@ function drawClock(){
 }
 function updateSpawnHUD(){
   const n=Math.ceil(spawnLeft);
-  spawnHint.textContent = players[0]._spawnSet ? `Spawn set — starting in ${n}s (tap to move)` : `Choose your spawn — tap an empty spot · ${n}s`;
-  infV.textContent=`${Math.floor(players[0].influence)}`;
+  spawnHint.textContent = players[MY]._spawnSet ? `Spawn set — starting in ${n}s (tap to move)` : `Choose your spawn — tap an empty spot · ${n}s`;
+  infV.textContent=`${Math.floor(players[MY].influence)}`;
   const m=Math.floor(spawnLeft/60), s=Math.floor(spawnLeft%60);
   clockEl.textContent=`${m}:${s<10?"0":""}${s}`; clockEl.classList.toggle("warn",spawnLeft<=3);
 }
@@ -1030,21 +1038,22 @@ function updateHUD(){
     }
   } else {
     let alive=0, top=0; for(const p of players){ if(p.alive)alive++; const pc=p.cells/N; if(pc>top)top=pc; }
-    sbYou.textContent=Math.round(players[0].cells/N*100)+"%"; sbAlive.textContent=alive; sbTop.textContent=Math.round(top*100)+"%";
+    sbYou.textContent=Math.round(players[MY].cells/N*100)+"%"; sbAlive.textContent=alive; sbTop.textContent=Math.round(top*100)+"%";
   }
   drawClock();
-  const me=players[0];
+  const me=players[MY];
   infV.textContent=`${Math.floor(me.influence)} / ${capOf(me)}`;
   let inc=me.nodeCount*CONFIG.INCOME_PER_NODE + me.cells*CONFIG.INCOME_PER_CELL + CONFIG.TRICKLE;
   if(!me.hasBase) inc*=(1-CONFIG.BASE_PENALTY);
   incV.textContent=inc.toFixed(1);
   budgetV.textContent=Math.ceil(me.influence*commitPct/100);
-  bombBtn.textContent = bombardCd>0 ? `Bomb ${Math.ceil(bombardCd)}s` : `Bomb ${CONFIG.BOMBARD_COST}`;
-  bombBtn.classList.toggle("cooling", bombardCd>0);
+  const myCd=players[MY]._bombCd||0;
+  bombBtn.textContent = myCd>0 ? `Bomb ${Math.ceil(myCd)}s` : `Bomb ${CONFIG.BOMBARD_COST}`;
+  bombBtn.classList.toggle("cooling", myCd>0);
   if(me.hasBase){ baseInfo.className="ok"; }
   else {
     let eligible=false;
-    for(const nd of nodes){ if(nd.owner===0 && !nd.base && defense[nd.cy*COLS+nd.cx]>=CONFIG.DEF_MAX){ eligible=true; break; } }
+    for(const nd of nodes){ if(nd.owner===MY && !nd.base && defense[nd.cy*COLS+nd.cx]>=CONFIG.DEF_MAX){ eligible=true; break; } }
     baseInfo.className="";
     baseInfo.textContent = eligible ? `No base · tap a glowing node to rebuild (${CONFIG.BASE_COST})`
                                     : `No base · −30% income · entrench a node first`;
@@ -1052,9 +1061,9 @@ function updateHUD(){
   if(lastCursorCell){
     const {cx,cy}=lastCursorCell;
     if(cx>=0&&cy>=0&&cx<COLS&&cy<ROWS){
-      const idx=cy*COLS+cx, ow=owner[idx], pen=supplyPenalty(cx,cy,0);
+      const idx=cy*COLS+cx, ow=owner[idx], pen=supplyPenalty(cx,cy,MY);
       if(blocked[idx]) cellInfo.textContent="barrier · impassable";
-      else if(ow===0) cellInfo.textContent = wall[idx]?`your wall · ${wall[idx]}/${CONFIG.WALL_HP}`:"your land";
+      else if(ow===MY) cellInfo.textContent = wall[idx]?`your wall · ${wall[idx]}/${CONFIG.WALL_HP}`:"your land";
       else if(ow<0 && scorchUntil[idx]>simTime) cellInfo.textContent=`crater · burning ${Math.ceil(scorchUntil[idx]-simTime)}s`;
       else if(ow<0 && hillMask[idx]) cellInfo.textContent=`the hill · hold over half for ${CONFIG.HILL_HOLD}s`;
       else if(ow<0) cellInfo.textContent=`empty · ${1+pen}/cell`;
@@ -1127,9 +1136,19 @@ function startFromSetup(){
   const usedPreset=setupSel.custom==null;
   const humanRgb = usedPreset ? PALETTE[setupSel.color].rgb : hexToRgb(setupSel.custom);
   const mkP=(idx,name,tag,rgb,isHuman,team)=>({idx, name, tag, rgb, isHuman, team,
-    influence:0, alive:true, cells:0, nodeCount:0, farmCount:0, hasBase:false, baseIdx:-1, _next:0, _spawn:null, _spawnSet:false});
+    influence:0, alive:true, cells:0, nodeCount:0, farmCount:0, hasBase:false, baseIdx:-1, _next:0, _spawn:null, _spawnSet:false, _bombCd:0, _hill:0});
   players=[];
-  if(gameMode==="team"){
+  const mp=NET.connected() && NET.role()==="host";
+  if(mp && gameMode==="team"){ gameMode="timed"; flash("Teams aren't available with a friend yet"); }
+  NETX.on=mp; NETX.role=mp?"host":null; MY=0;
+  if(mp){
+    const gm=NETX.guestMeta||{name:"Friend",tag:"",rgb:[78,125,153]};
+    const opp=Math.max(0,Math.min(97,(setupSel.opponents|0)||0));
+    const botDefs=makeBotColors(Math.max(opp,1), usedPreset);
+    players.push(mkP(0,(nameIn.value.trim()||"Player"),(tagIn.value||""),humanRgb,true,0));
+    players.push(mkP(1,gm.name,gm.tag,gm.rgb,true,1));
+    for(let i=0;i<opp;i++){ const d=botDefs[i%botDefs.length]; players.push(mkP(2+i,d.name+(i>=botDefs.length?" "+(i+1):""),"",d.rgb,false,2+i)); }
+  } else if(gameMode==="team"){
     // Teammates share one colour; the enemy team gets the palette colour furthest from it.
     let eRgb=PALETTE[0].rgb, bd=-1;
     for(const p of PALETTE){ const d=(p.rgb[0]-humanRgb[0])**2+(p.rgb[1]-humanRgb[1])**2+(p.rgb[2]-humanRgb[2])**2; if(d>bd){bd=d;eRgb=p.rgb;} }
@@ -1159,8 +1178,9 @@ function updateSndBtn(){ sndBtn.textContent = SND.enabled() ? "♪ On" : "♪ Of
 sndBtn.addEventListener("click",()=>{ SND.toggle(); updateSndBtn(); });
 updateSndBtn();
 function endRound(winner){
+  if(NETX.on && NETX.role==="host" && NET.connected() && phase!=="over"){ hostTick(1); NET.send({t:"end", w:winner?winner.idx:-1}); }
   running=false; phase="over"; spawnHint.style.display="none"; setBuildMode(null); setBuildEnabled(false);
-  const humanWon = winner && (gameMode==="team" ? (players[winner.idx].team===0 && players[0].alive) : winner.isHuman);
+  const humanWon = winner && (gameMode==="team" ? (players[winner.idx].team===0 && players[0].alive) : winner.idx===MY || (!netActive() && winner.isHuman));
   SND.play(humanWon?"win":"lose"); SND.music(true);
   const ranked=[...players].sort((a,b)=>b.cells-a.cells);
   let teamRows="";
@@ -1174,13 +1194,13 @@ function endRound(winner){
       `<div class="row"><span class="chip" style="background:${rgbStr(players[0].rgb)}"></span><span class="nm">Your team</span><span class="vv">${Math.round(c0/N*100)}%</span></div>`+
       `<div class="row"><span class="chip" style="background:${rgbStr(players[players.length-1].rgb)}"></span><span class="nm">Enemy team</span><span class="vv">${Math.round(c1/N*100)}%</span></div>`;
   }
-  else if(winner&&winner.isHuman){ oTitle.textContent="You win";
+  else if(winner&&(winner.idx===MY||(!netActive()&&winner.isHuman))){ oTitle.textContent="You win";
     oSub.textContent = gameMode==="royale" ? "Last one standing."
                      : gameMode==="zone"   ? "You outlasted the zone."
                      : gameMode==="dom"    ? "First to 75% of the map."
                      : gameMode==="hill"   ? "You held the hill."
                      : "Most ground held when the clock stopped."; }
-  else if(!players[0].alive){ oTitle.textContent="Eliminated"; oSub.textContent = gameMode==="zone" ? "The zone got you." : "All your territory was taken."; }
+  else if(!players[MY].alive){ oTitle.textContent="Eliminated"; oSub.textContent = gameMode==="zone" ? "The zone got you." : "All your territory was taken."; }
   else { oTitle.textContent=(winner?dispName(winner)+" wins":"Draw");
     oSub.textContent = gameMode==="dom" ? "They reached 75% first." : gameMode==="hill" ? "They held the hill for 60 seconds." : "Better luck next round."; }
   oSetup.style.display="none";
@@ -1194,9 +1214,184 @@ oBtn.addEventListener("click",()=>{
   else { overlay.classList.add("hidden"); newRound(); }
 });
 
+// ================= Multiplayer (peer-to-peer, host-authoritative) ===============================
+// The host's browser runs the whole simulation; the guest sends inputs and renders synced state.
+const NETX={ on:false, role:null, guestMeta:null, acc:0, nodeLen:-1, centered:false,
+  so:new Int16Array(N), sw:new Uint8Array(N), sb:new Uint8Array(N) };
+function netActive(){ return NETX.on; }
+const netGuest=()=>NETX.on && NETX.role==="guest";
+function netAction(kind,payload){                       // guest inputs are forwarded to the host
+  if(!netGuest()) return false;
+  NET.send({t:kind,...payload});
+  if(kind==="ex") SND.play("expand",{p:0.35});          // optimistic feedback while the host confirms
+  return true;
+}
+function netBoom(cx,cy){ if(NETX.on && NETX.role==="host") NET.send({t:"boom",cx,cy}); }
+function hostSendInit(){
+  NET.send({t:"init", mode:gameMode,
+    players:players.map(p=>({name:p.name,tag:p.tag,rgb:p.rgb,team:p.team})),
+    hill:hillC?{cx:hillC.cx,cy:hillC.cy,r:hillC.r}:null,
+    nodes:nodes.map(n=>[n.cx,n.cy,n.owner,n.base?1:0,n.dead?1:0])});
+  NETX.so.fill(-1); NETX.sw.fill(0); NETX.sb.fill(0); NETX.nodeLen=nodes.length; NETX.acc=1;
+}
+function hostTick(dt){
+  if(!NET.connected()) return;
+  NETX.acc+=dt; if(NETX.acc<0.1) return; NETX.acc=0;
+  if(nodes.length!==NETX.nodeLen){ NETX.nodeLen=nodes.length;
+    NET.send({t:"nodes", nodes:nodes.map(n=>[n.cx,n.cy,n.owner,n.base?1:0,n.dead?1:0])}); }
+  const d=[];
+  for(let i=0;i<N;i++){
+    if(owner[i]!==NETX.so[i]||wall[i]!==NETX.sw[i]||blocked[i]!==NETX.sb[i]){
+      d.push(i,owner[i],wall[i],blocked[i]); NETX.so[i]=owner[i]; NETX.sw[i]=wall[i]; NETX.sb[i]=blocked[i]; }
+  }
+  for(let off=0;off<d.length;off+=12000) NET.send({t:"cells", d:d.slice(off,off+12000)});
+  NET.send({t:"tick", phase,
+    st:players.map(p=>[p.cells, Math.round(p.influence*10)/10, p.nodeCount, p.farmCount, p.alive?1:0,
+                       Math.round((p._hill||0)*10)/10, Math.round((p._bombCd||0)*10)/10, p.hasBase?1:0]),
+    nd:nodes.map(n=>[n.owner, n.base?1:0, n.dead?1:0]),
+    bl:builds.filter(b=>b.alive).map(b=>[b.cx,b.cy,b.type==="farm"?0:1,b.owner]),
+    tl:Math.round(timeLeft*10)/10, sl:Math.round(spawnLeft*10)/10, hc:hillCtrl,
+    zn:gameMode==="zone"?{s:zone.state,ph:zone.phase,tm:Math.round((zone.timer||0)*10)/10,c:zone.cur,n:zone.next}:null,
+    sp:phase==="spawn"?players.map(p=>p._spawn?[p._spawn.cx,p._spawn.cy,p._spawnSet?1:0]:null):null });
+}
+function hostOnMsg(m){
+  switch(m.t){
+    case "hi": NETX.guestMeta={name:String(m.name||"Friend").slice(0,14), tag:String(m.tag||"").slice(0,3),
+                               rgb:Array.isArray(m.rgb)?m.rgb.slice(0,3).map(v=>Math.max(0,Math.min(255,+v||0))):[78,125,153]};
+               mpStatus("Friend connected: "+NETX.guestMeta.name+" — press Start when ready"); break;
+    case "spawn": { const ok=trySetSpawn(m.cx|0,m.cy|0,1); NET.send(ok?{t:"spok"}:{t:"flash",m:"That spot is blocked — pick another"}); break; }
+    case "ex": { const g=players[1]; if(!g||!g.alive||phase!=="play") break;
+                 const pct=Math.max(5,Math.min(100,+m.pct||50));
+                 const budget=Math.ceil(g.influence*pct/100);
+                 if(budget>=1) expandToward(1,m.cx|0,m.cy|0,budget); break; }
+    case "wall": paintWall(m.cx|0,m.cy|0,1); break;
+    case "bld": if(m.k==="farm"||m.k==="outpost") placeBuild(m.cx|0,m.cy|0,m.k,1); break;
+    case "bomb": tryBombard(m.cx|0,m.cy|0,1); break;
+    case "base": { const ni=m.ni|0; if(nodes[ni] && nodes[ni].owner===1) makeBase(ni,1); break; }
+  }
+}
+function applyNodes(arr){ nodes=arr.map(a=>({cx:a[0],cy:a[1],owner:a[2],base:!!a[3],dead:!!a[4]})); rebuildCellNode(); }
+function guestInit(m){
+  demo=false; SND.music(false);
+  MY=1; NETX.on=true; NETX.role="guest"; NETX.centered=false;
+  gameMode=m.mode; refreshMods();
+  clearGrid();
+  players=m.players.map((pm,i)=>({idx:i, name:pm.name, tag:pm.tag||"", rgb:pm.rgb, isHuman:i===1, team:pm.team??i,
+    influence:CONFIG.START_INFLUENCE, alive:true, cells:0, nodeCount:0, farmCount:0, hasBase:false, baseIdx:-1,
+    _next:0, _spawn:null, _spawnSet:false, _hill:0, _bombCd:0}));
+  hillC=m.hill||null; hillCells=[]; hillCtrl=-1; hillMask.fill(0);
+  if(hillC) buildHillMask();
+  zone={state:"idle"};
+  applyNodes(m.nodes);
+  builds=[]; timeLeft=CONFIG.ROUND_SECONDS; commitPct=+pctEl.value;
+  buildScoreboard(); computeColors();
+  overlay.classList.add("hidden"); oSetup.style.display="none";
+  oBtn.disabled=true; oBtn.textContent="Waiting for host…";
+  phase="spawn"; spawnLeft=CONFIG.SPAWN_SECONDS; running=false; lastT=performance.now();
+  spawnHint.style.display=""; setBuildMode(null); setBuildEnabled(false);
+}
+function guestBoom(cx,cy){
+  const R=CONFIG.BOMBARD_RADIUS,R2=R*R;
+  for(let dy=-R;dy<=R;dy++) for(let dx=-R;dx<=R;dx++){ if(dx*dx+dy*dy>R2) continue;
+    const c=cx+dx,r=cy+dy; if(c<0||r<0||c>=COLS||r>=ROWS) continue;
+    const i=r*COLS+c; if(!blocked[i]) scorchUntil[i]=simTime+CONFIG.BOMB_SCORCH; }
+  SND.play("bomb");
+  if(!reduceMotion){ flashes.push({cx,cy,t:0,rgb:[224,138,60],big:true}); }
+}
+function guestTick(m){
+  for(let i=0;i<players.length&&i<m.st.length;i++){ const t=m.st[i], p=players[i];
+    p.cells=t[0]; p.influence=t[1]; p.nodeCount=t[2]; p.farmCount=t[3]; p.alive=!!t[4]; p._hill=t[5]; p._bombCd=t[6]; p.hasBase=!!t[7]; }
+  for(let i=0;i<nodes.length&&i<m.nd.length;i++){ const a=m.nd[i], nd=nodes[i];
+    if(nd.owner!==a[0]){ if(a[0]===MY) SND.play("node"); else if(nd.owner===MY) SND.play("nodeLost"); nd.owner=a[0];
+      if(!reduceMotion) flashes.push({cx:nd.cx,cy:nd.cy,t:0,rgb:players[a[0]]?players[a[0]].rgb:[200,200,200]}); }
+    nd.base=!!a[1]; nd.dead=!!a[2]; }
+  builds=m.bl.map(a=>({cx:a[0],cy:a[1],type:a[2]?"outpost":"farm",owner:a[3],acc:0,alive:true}));
+  timeLeft=m.tl; spawnLeft=m.sl; hillCtrl=m.hc;
+  if(m.zn){ zone.state=m.zn.s; zone.phase=m.zn.ph; zone.timer=m.zn.tm; zone.cur=m.zn.c; zone.next=m.zn.n; }
+  if(m.sp){ for(let i=0;i<players.length;i++){ const sp=m.sp[i]; if(sp){ players[i]._spawn={cx:sp[0],cy:sp[1]}; if(i!==MY) players[i]._spawnSet=!!sp[2]; } }
+    if(!NETX.centered && players[MY]._spawn){ NETX.centered=true; const s=players[MY]._spawn;
+      cam.zoom=CONFIG.ZOOM_START; cam.x=(s.cx+0.5)*CELL-(VIEW_W/cam.zoom)/2; cam.y=(s.cy+0.5)*CELL-(VIEW_H/cam.zoom)/2; clampCam(); } }
+  if(m.phase!==phase && phase!=="over"){
+    phase=m.phase;
+    if(phase==="play"){ spawnHint.style.display="none"; setBuildMode(null); setBuildEnabled(true); playStart=performance.now(); SND.play("go"); }
+  }
+}
+function guestOnMsg(m){
+  switch(m.t){
+    case "init": guestInit(m); break;
+    case "nodes": applyNodes(m.nodes); break;
+    case "cells": for(let k=0;k<m.d.length;k+=4){ const i=m.d[k];
+        if(owner[i]!==m.d[k+1]){ owner[i]=m.d[k+1]; defense[i]=0; }
+        wall[i]=m.d[k+2]; blocked[i]=m.d[k+3]; } break;
+    case "tick": guestTick(m); break;
+    case "boom": guestBoom(m.cx|0,m.cy|0); break;
+    case "spok": players[MY]._spawnSet=true; flash("Spawn set"); break;
+    case "flash": if(m.m) flash(String(m.m).slice(0,80)); break;
+    case "end": { phase="play"; endRound(players[m.w]||null); oBtn.disabled=true; oBtn.textContent="Waiting for host…"; break; }
+  }
+}
+// connection UI
+const mpHostB=document.getElementById("mpHost"), mpJoinB=document.getElementById("mpJoin"),
+      mpBox=document.getElementById("mpBox"), mpOut=document.getElementById("mpOut"), mpIn=document.getElementById("mpIn"),
+      mpOutL=document.getElementById("mpOutL"), mpInL=document.getElementById("mpInL"),
+      mpApply=document.getElementById("mpApply"), mpCopy=document.getElementById("mpCopy"),
+      mpStatusEl=document.getElementById("mpStatus");
+function mpStatus(t){ if(mpStatusEl) mpStatusEl.textContent=t; }
+function myPickedRgb(){ return setupSel.custom!=null ? hexToRgb(setupSel.custom) : PALETTE[setupSel.color].rgb; }
+if(mpHostB){
+  NET.onMsg(m=>{ try{ NET.role()==="host" ? hostOnMsg(m) : guestOnMsg(m); }catch(e){} });
+  NET.onOpen(()=>{
+    if(NET.role()==="guest"){
+      NET.send({t:"hi", name:(nameIn.value.trim()||"Friend"), tag:tagIn.value||"", rgb:myPickedRgb()});
+      mpStatus("Connected! Waiting for the host to start…");
+      oBtn.disabled=true; oBtn.textContent="Host starts the game";
+    } else mpStatus("Friend connected!");
+  });
+  NET.onClose(()=>{
+    if(!NETX.on && NET.role()==null) return;
+    mpStatus("Connection lost.");
+    flash("Connection lost");
+    const wasGuest=netGuest();
+    NETX.on=false; NETX.guestMeta=null; NET.close();
+    oBtn.disabled=false; oBtn.textContent = phase==="over" ? (oSetup.style.display!=="none"?"Start":"Play again") : oBtn.textContent;
+    if(wasGuest && phase!=="over"){ running=false; phase="over"; MY=0; startDemo(); showSetup(); }
+  });
+  mpHostB.addEventListener("click", async ()=>{
+    mpBox.style.display=""; mpHostB.classList.add("sel"); mpJoinB.classList.remove("sel");
+    mpOutL.textContent="1 · Send this invite code to your friend:";
+    mpInL.textContent="2 · Paste their reply code here, then Connect:";
+    mpOut.value="Generating…"; mpStatus("");
+    try{ mpOut.value=await NET.host(); mpStatus("Waiting for your friend's reply code…"); }
+    catch(e){ mpOut.value=""; mpStatus("Could not create an invite ("+e.message+")"); }
+  });
+  mpJoinB.addEventListener("click", ()=>{
+    mpBox.style.display=""; mpJoinB.classList.add("sel"); mpHostB.classList.remove("sel");
+    mpOutL.textContent="2 · Send this reply code back to the host:";
+    mpInL.textContent="1 · Paste the host's invite code here, then Connect:";
+    mpOut.value=""; mpStatus("");
+  });
+  mpApply.addEventListener("click", async ()=>{
+    const code=mpIn.value.trim(); if(!code){ mpStatus("Paste a code first."); return; }
+    try{
+      if(NET.role()==="host"){ mpStatus("Connecting…"); await NET.acceptAnswer(code); }
+      else { mpStatus("Building reply…"); mpOut.value=await NET.join(code); mpStatus("Reply code ready — send it back, then wait."); }
+    }catch(e){ mpStatus("That code didn't work ("+(e.message||e)+")"); }
+  });
+  mpCopy.addEventListener("click", ()=>{ mpOut.select(); try{ navigator.clipboard.writeText(mpOut.value); mpStatus("Copied!"); }catch(e){ document.execCommand("copy"); } });
+}
+
 function frame(now){
-  if(phase==="spawn"){ let dt=(now-lastT)/1000; lastT=now; if(dt>0.25)dt=0.25; spawnLeft-=dt; if(spawnLeft<=0){ spawnLeft=0; beginPlay(); } else updateSpawnHUD(); }
-  else if(phase==="play" && running){ let dt=(now-lastT)/1000; lastT=now; if(dt>0.1)dt=0.1; step(dt); updateHUD(); }
+  if(phase==="spawn"){ let dt=(now-lastT)/1000; lastT=now; if(dt>0.25)dt=0.25;
+    if(netGuest()){ updateSpawnHUD(); }
+    else { spawnLeft-=dt; if(spawnLeft<=0){ spawnLeft=0; beginPlay(); } else updateSpawnHUD();
+           if(NETX.on && NETX.role==="host") hostTick(dt); } }
+  else if(phase==="play" && running){ let dt=(now-lastT)/1000; lastT=now; if(dt>0.1)dt=0.1; step(dt); updateHUD();
+    if(NETX.on && NETX.role==="host") hostTick(dt); }
+  else if(phase==="play" && netGuest()){ let dt=(now-lastT)/1000; lastT=now; if(dt>0.1)dt=0.1;
+    simTime+=dt;
+    for(let i=0;i<N;i++){ if(owner[i]>=0){ const dv=defense[i]+CONFIG.DEF_RATE*dt; defense[i]=dv>CONFIG.DEF_MAX?CONFIG.DEF_MAX:dv; } }
+    for(let i=flashes.length-1;i>=0;i--){ flashes[i].t+=dt; if(flashes[i].t>0.6) flashes.splice(i,1); }
+    updateHUD(); }
   else if(phase==="over" && demo){ let dt=(now-lastT)/1000; lastT=now; if(dt>0.1)dt=0.1; stepDemo(dt); }
   else lastT=now;
   render();
