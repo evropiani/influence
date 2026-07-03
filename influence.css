@@ -48,7 +48,7 @@
   .spacer{flex:1}
   #hint{color:var(--muted);font-size:11px;text-align:right}
 
-  #overlay{position:absolute;inset:0;overflow-y:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y;background:rgba(20,24,32,.92);backdrop-filter:blur(3px)}
+  #overlay{position:absolute;inset:0;overflow-y:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y;background:rgba(20,24,32,.68);backdrop-filter:blur(2px)}
   #overlay.hidden{display:none}
   #ovbox{min-height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;text-align:center;padding:22px}
   #otitle{font-size:27px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}

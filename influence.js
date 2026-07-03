@@ -91,6 +91,7 @@ let simTime=0;
 let builds=[];
 const structAt=new Map();
 let phase="over";
+let demo=false, demoT=0;   // attract mode: a bot-only match playing behind the menu
 let spawnLeft=0, playStart=0, obstacleTimer=0, bombardCd=0;
 let buildMode=null;
 let gameMode="timed";
@@ -113,6 +114,9 @@ let wallWarned=false;
 const SND=window.SND||{play(){},music(){},toggle(){return false},enabled(){return false},unlock(){}};   // sound is optional
 addEventListener("pointerdown",()=>SND.unlock(),{once:false});
 addEventListener("keydown",()=>SND.unlock(),{once:true});
+// The menu runs a silent bot-only demo match in the background; mute gameplay SFX while it does.
+const _sndPlay=SND.play.bind(SND);
+SND.play=(n,o)=>{ if(demo) return; _sndPlay(n,o); };
 
 const rand=(a,b)=>a+Math.random()*(b-a);
 const clamp=(v,a,b)=>v<a?a:(v>b?b:v);
@@ -475,6 +479,7 @@ function beginPlay(){
 }
 function newRound(){
   SND.music(false);
+  demo=false;
   refreshMods();
   clearGrid();
   setBuildMode(null); setBuildEnabled(false);
@@ -538,6 +543,70 @@ function botPlaceBuild(pl, type, frontier){
   }
   return false;
 }
+// ---- Attract mode: a live bot-only match behind the menu --------------------------------------
+function startDemo(){
+  demo=true; demoT=0; gameMode="timed"; botCfg=DIFFS.normal; refreshMods();
+  hillC=null; hillCells=[]; hillCtrl=-1; zone={state:"idle"};
+  const defs=makeBotColors(6,false);
+  players=defs.map((d,i)=>({idx:i, name:d.name, tag:"", rgb:d.rgb, isHuman:false, team:i,
+    influence:CONFIG.START_INFLUENCE, alive:true, cells:0, nodeCount:0, farmCount:0, hasBase:false, baseIdx:-1,
+    _next:performance.now()+300+i*350+rand(0,400), _spawn:null, _spawnSet:false, _hill:0}));
+  clearGrid(); scatterNeutralNodes(); rebuildCellNode(); scatterObstacles();
+  obstacleTimer=CONFIG.OBSTACLE_INTERVAL; bombardCd=0;
+  assignSpawns(); computeColors();
+  players.forEach(pl=>{ const s=pl._spawn, bi=nodes.length;
+    blocked[s.cy*COLS+s.cx]=0;
+    nodes.push({cx:s.cx,cy:s.cy,owner:pl.idx,base:true}); pl.nodeCount=1; pl.hasBase=true; pl.baseIdx=bi;
+    fillDisc(s.cx,s.cy,CONFIG.START_R,pl.idx); });
+  rebuildCellNode();
+  // warm the match up so the menu opens onto an ongoing battle, not empty ground
+  for(let w=0; w<12; w++){
+    for(const pl of players){ pl.influence=420;
+      const nd=nodes[(Math.random()*nodes.length)|0];
+      expandToward(pl.idx, nd.cx, nd.cy, 360); }
+    for(let i=0;i<N;i++){ if(owner[i]>=0){ const d=defense[i]+0.45; defense[i]=d>CONFIG.DEF_MAX?CONFIG.DEF_MAX:d; } }
+  }
+  flashes=[];
+  players.forEach(pl=>{ pl.influence=CONFIG.START_INFLUENCE; });
+  buildScoreboard();
+  const f=demoFocus();
+  cam.zoom=0.55; cam.x=f.x-(VIEW_W/cam.zoom)/2; cam.y=f.y-(VIEW_H/cam.zoom)/2; clampCam();
+}
+// centre of mass of all claimed land — where the fighting is
+function demoFocus(){
+  let sx=0, sy=0, k=0;
+  for(let i=0;i<N;i+=41){ if(owner[i]>=0){ sx+=(i%COLS); sy+=((i/COLS)|0); k++; } }
+  if(!k) return {x:WORLD_W/2, y:WORLD_H/2};
+  return {x:(sx/k+0.5)*CELL, y:(sy/k+0.5)*CELL};
+}
+function stepDemo(dt){
+  demoT+=dt; simTime+=dt;
+  for(let i=0;i<N;i++){ if(owner[i]>=0){ const d=defense[i]+CONFIG.DEF_RATE*dt; defense[i]=d>CONFIG.DEF_MAX?CONFIG.DEF_MAX:d; } }
+  const now=performance.now();
+  for(const pl of players){ if(pl.alive && now>=pl._next) botTurn(pl,now); }
+  for(const b of builds){ if(!b.alive) continue; b.acc+=dt;
+    if(b.type==="farm"){ if(b.acc>=CONFIG.FARM_PERIOD){ b.acc-=CONFIG.FARM_PERIOD; players[b.owner].influence+=MODS.farmYield; } }
+    else if(b.acc>=MODS.outPeriod){ b.acc-=MODS.outPeriod; outpostFire(b); } }
+  for(const pl of players){ if(!pl.alive) continue;
+    let inc=pl.nodeCount*CONFIG.INCOME_PER_NODE + pl.cells*CONFIG.INCOME_PER_CELL + CONFIG.TRICKLE;
+    if(!pl.hasBase) inc*=(1-CONFIG.BASE_PENALTY);
+    inc*=2.5;                                            // demo pace: keep the bots visibly busy
+    const cap=capOf(pl); if(pl.influence<cap) pl.influence=Math.min(cap, pl.influence+inc*dt); }
+  for(const pl of players){ if(pl.alive && pl.cells<=0) pl.alive=false; }
+  if(CONFIG.OBSTACLES){ obstacleTimer-=dt; if(obstacleTimer<=0){ obstacleTimer=CONFIG.OBSTACLE_INTERVAL; spawnDynamicObstacle(); } }
+  for(let i=flashes.length-1;i>=0;i--){ flashes[i].t+=dt; if(flashes[i].t>0.6) flashes.splice(i,1); }
+  // slow cinematic drift around wherever the fighting is
+  const f=demoFocus(), t=performance.now()*0.00005;
+  const tx=f.x+Math.cos(t)*WORLD_W*0.08-(VIEW_W/cam.zoom)/2;
+  const ty=f.y+Math.sin(t*1.37)*WORLD_H*0.08-(VIEW_H/cam.zoom)/2;
+  const k=Math.min(1,dt*0.5);
+  cam.x+=(tx-cam.x)*k; cam.y+=(ty-cam.y)*k; clampCam();
+  if(!compactSB && pills.length===players.length){
+    for(let i=0;i<players.length;i++){ pills[i].pct.textContent=Math.round(players[i].cells/N*100)+"%"; pills[i].el.classList.toggle("dead",!players[i].alive); } }
+  // refresh once the match goes stale so the menu always has a lively fight behind it
+  if(players.filter(p=>p.alive).length<=1 || topPlayer().cells>N*0.30 || demoT>180) startDemo();
+}
+
 function botTurn(pl, now){
   const skill=botCfg.skill;
   if(!pl.hasBase && pl.influence>=CONFIG.BASE_COST){
@@ -996,7 +1065,8 @@ function updateHUD(){
 function escapeHTML(s){ return s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 
 let flashTimer=0; const flashEl=document.getElementById("flash");
-function flash(msg){ flashEl.textContent=msg; flashEl.classList.add("show"); clearTimeout(flashTimer);
+function flash(msg){ if(demo) return;
+  flashEl.textContent=msg; flashEl.classList.add("show"); clearTimeout(flashTimer);
   flashTimer=setTimeout(()=>flashEl.classList.remove("show"),1400); }
 
 const pctEl=document.getElementById("pct"), pctV=document.getElementById("pctV");
@@ -1127,14 +1197,14 @@ oBtn.addEventListener("click",()=>{
 function frame(now){
   if(phase==="spawn"){ let dt=(now-lastT)/1000; lastT=now; if(dt>0.25)dt=0.25; spawnLeft-=dt; if(spawnLeft<=0){ spawnLeft=0; beginPlay(); } else updateSpawnHUD(); }
   else if(phase==="play" && running){ let dt=(now-lastT)/1000; lastT=now; if(dt>0.1)dt=0.1; step(dt); updateHUD(); }
+  else if(phase==="over" && demo){ let dt=(now-lastT)/1000; lastT=now; if(dt>0.1)dt=0.1; stepDemo(dt); }
+  else lastT=now;
   render();
   requestAnimationFrame(frame);
 }
 
-players=[{idx:0,name:"Player",tag:"",rgb:PALETTE[0].rgb,isHuman:true,team:0,influence:0,alive:true,cells:0,nodeCount:0,farmCount:0,hasBase:false,baseIdx:-1,_next:0,_spawn:null,_spawnSet:false}];
-clearGrid(); scatterNeutralNodes(); rebuildCellNode(); computeColors();
 resize();
-cam.x=WORLD_W/2-(VIEW_W/cam.zoom)/2; cam.y=WORLD_H/2-(VIEW_H/cam.zoom)/2; clampCam();
 phase="over"; spawnHint.style.display="none"; setBuildEnabled(false);
-buildScoreboard(); showSetup();
+startDemo();                       // a live bot match plays behind the menu
+showSetup();
 requestAnimationFrame(frame);
