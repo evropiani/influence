@@ -1,11 +1,11 @@
 # Changelog
 
-All notable changes to **Influence**, newest first. The latest day's changes are also shown in the "Latest changes" box on the [How to Play page](https://evropiani.github.io/influence/).
+All notable changes to **Influence**, newest first. Also published as `changelog.html` on the site, and the latest day's changes appear in the "Latest changes" box on the how-to page.
 
 ## 2026-07-03
 
 - **Bomb fix**: craters now stay **scorched for 10 seconds** — the burning ground is visible on the map, and the player you bombed can't flood back in while it burns (you and your teammates can). Previously the victim usually re-took the crater within a second or two, which made every bomb after the first feel like it did nothing.
-- The "Full changelog" link on the how-to page now stays on the same site.
+- The changelog got a page of its own (`changelog.html`), so the "Full changelog" link works the same everywhere the game is hosted.
 
 ## 2026-07-02
 

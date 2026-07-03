@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<title>Influence — Changelog</title>
+<style>
+  :root{
+    --bg:#141821;--card:#1c2029;--panel:#2b313f;--line:#3a4255;
+    --ink:#e7e9ee;--muted:#97a2b4;--accent:#cf7a3f;
+    --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.65;
+    -webkit-font-smoothing:antialiased;padding:32px 18px 80px}
+  .wrap{max-width:740px;margin:0 auto}
+  header{margin-bottom:26px;display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap}
+  .badge{display:inline-block;font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--accent);border:1px solid var(--accent);border-radius:20px;padding:3px 11px;margin-bottom:14px}
+  h1{font-family:var(--mono);font-size:34px;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
+  .tag{color:var(--muted);font-size:15px;margin-top:8px}
+  a.play{display:inline-block;font-family:var(--mono);font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+    text-decoration:none;color:#141821;background:var(--accent);border-radius:10px;padding:12px 26px;margin-top:2px}
+  a.play:hover{filter:brightness(1.08)}
+  section{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:22px 22px;margin-bottom:16px}
+  h2{font-family:var(--mono);font-size:16px;letter-spacing:.05em;text-transform:uppercase;margin-bottom:12px;
+    display:flex;align-items:center;gap:10px}
+  h2::before{content:"";width:10px;height:10px;border-radius:2px;background:var(--accent);flex:none}
+  p{color:#d4dae5;margin:9px 0}
+  b{color:var(--ink);font-weight:600}
+  .accent{color:var(--accent);font-weight:600}
+  ul{list-style:none;margin:8px 0}
+  li{position:relative;padding-left:20px;margin:10px 0;color:#d4dae5}
+  li::before{content:"";position:absolute;left:2px;top:10px;width:6px;height:6px;border-radius:50%;background:var(--accent)}
+  .kbd{display:inline-block;font-family:var(--mono);font-size:12px;font-weight:700;color:var(--ink);
+    background:var(--panel);border:1px solid var(--line);border-bottom-width:2px;border-radius:6px;
+    padding:1px 8px;margin-right:2px;vertical-align:baseline}
+  a.back{color:var(--accent);font-family:var(--mono);font-size:13px;font-weight:700;text-decoration:none}
+  a.back:hover{text-decoration:underline}
+  footer{color:var(--muted);font-size:12px;text-align:center;margin-top:28px;font-family:var(--mono)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <div class="badge">Changelog</div>
+      <h1>Influence</h1>
+      <p class="tag">Everything that changed, newest first. <a class="back" href="index.html">← How to play</a></p>
+    </div>
+    <a class="play" href="influence.html">Play</a>
+  </header>
+
+  <section>
+    <h2>2026-07-03</h2>
+    <ul>
+      <li><b>Bomb fix:</b> craters now stay <span class="accent">scorched for 10 seconds</span> — the burning ground is visible on the map, and the player you bombed can't flood back in while it burns (you and your teammates can). Previously the victim usually re-took the crater within a second or two, which made every bomb after the first feel like it did nothing.</li>
+      <li>The changelog got this page of its own, so the link works the same everywhere the game is hosted.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>2026-07-02</h2>
+    <ul>
+      <li><b>New mode — The Zone:</b> a circular map that collapses in 5 phases (2 minutes each) toward a <b>random</b> point. A red warning ring appears 20 seconds before each collapse, on the map and minimap. Crushed ground is destroyed — land, walls, buildings, and <b>nodes</b>, which take their income and cap with them. After the fifth collapse, a 60-second final countdown decides the winner by territory.</li>
+      <li><b>New modes — Teams 2v2 &amp; 3v3:</b> bot allies share your colour against a matched enemy team. No friendly fire — expansion, bombs and outposts all spare teammates — and ally nodes/outposts extend your supply range. Most combined ground wins; the results screen shows team totals.</li>
+      <li><b>New tool — Bomb (250):</b> an aimed strike on a 25-second cooldown that blasts a crater out of enemy territory anywhere within supply range (cells, walls and buildings — nodes survive). Outposts extend its reach. The aiming reticle shows valid (orange) and invalid (red) targets.</li>
+      <li><b>Bot difficulty selector:</b> Easy / Normal / Hard on the start screen. Harder bots act faster, commit more influence, and build farms and outposts of their own.</li>
+      <li><b>Hotkeys:</b> <span class="kbd">1</span> Wall · <span class="kbd">2</span> Farm · <span class="kbd">3</span> Outpost · <span class="kbd">4</span> Bomb (Ctrl+click still paints walls).</li>
+      <li><b>Walls reworked:</b> build for 20, with <span class="accent">25 durability</span>. Attacks that can't afford a full break now chip the wall instead of bouncing off, and the damage shows as growing <b>cracks</b>. Hovering a wall shows its remaining durability.</li>
+      <li><b>Renames:</b> mode "Timed" → <b>"Classic"</b>; tool "Bombard" → <b>"Bomb"</b>.</li>
+      <li><b>How-to page rebuilt:</b> categorized accordions with an illustrated step-by-step tutorial for every mode and every tool (7 new screenshots).</li>
+      <li><b>README redesigned:</b> pixel-art banner, badges, screenshot gallery and tables.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>2026-07-01</h2>
+    <ul>
+      <li><b>Barriers:</b> impassable rock walls carve up the map, so expansion has to route around them — no more sniping straight across open ground at a distant node or player. New barriers keep forming mid-round.</li>
+      <li><b>Farms buffed:</b> cost 400 (was 500), pay +120 influence every 15s (was +100 / 30s), and each farm raises your influence cap.</li>
+      <li><b>Outposts buffed:</b> fire every 12s (was 20s) claiming up to 40 cells (was 30), prefer enemy land, leave a defended beachhead, soften nearby enemy entrenchment, and act as a forward supply point you can expand from.</li>
+      <li><b>Random spawns:</b> players and bots now spawn genuinely scattered (only a minimum safe spacing is enforced) instead of being pushed into a predictable, evenly-spread pattern.</li>
+      <li><b>Code split:</b> the single-file game was split into dedicated HTML, CSS and JS files.</li>
+      <li><b>Docs fixes:</b> corrected the influence bar's location, the outpost splash shape, and the spawn restrictions on the how-to page.</li>
+      <li><b>Bigger map:</b> the field was enlarged to 440×300 cells with 200 nodes.</li>
+      <li><b>Initial release:</b> Influence (formerly "territory") published — territory-painting gameplay, nodes and bases, walls, farms and outposts, Timed and Battle-royale modes, landing page and README.</li>
+    </ul>
+  </section>
+
+  <footer>Influence · Beta</footer>
+</div>
+</body>
+</html>
