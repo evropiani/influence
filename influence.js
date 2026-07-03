@@ -97,6 +97,10 @@ let teamSize=2;
 let zone={state:"idle"};   // The Zone mode: calm -> warn (red ring) -> shrink -> ... -> final
 let wallWarned=false;
 
+const SND=window.SND||{play(){},music(){},toggle(){return false},enabled(){return false},unlock(){}};   // sound is optional
+addEventListener("pointerdown",()=>SND.unlock(),{once:false});
+addEventListener("keydown",()=>SND.unlock(),{once:true});
+
 const rand=(a,b)=>a+Math.random()*(b-a);
 const clamp=(v,a,b)=>v<a?a:(v>b?b:v);
 const rgbStr=(c,a)=>`rgba(${c[0]},${c[1]},${c[2]},${a==null?1:a})`;
@@ -143,7 +147,7 @@ function expandToward(pIdx, tx, ty, budgetCap){
     seedCandidate(c-1,r,tx,ty,pIdx); seedCandidate(c+1,r,tx,ty,pIdx);
     seedCandidate(c,r-1,tx,ty,pIdx); seedCandidate(c,r+1,tx,ty,pIdx);
   }
-  let budget=budgetCap, spent=0;
+  let budget=budgetCap, spent=0, tookFromHuman=0;
   while(heap.length && budget>=1){
     const idx=hpop()[1];
     if(owner[idx]===pIdx) continue;
@@ -155,10 +159,13 @@ function expandToward(pIdx, tx, ty, budgetCap){
     let cost = (enemy ? enemyCost(idx) : 1) + supplyPenalty(c,r,pIdx) + wallHp;
     if(budget<cost){
       // Not enough to take a walled cell outright: the leftover chips the wall instead (cracks show).
-      if(wallHp>0 && budget>=1){ const dmg=Math.min(Math.floor(budget),wallHp); wall[idx]-=dmg; budget-=dmg; spent+=dmg; }
+      if(wallHp>0 && budget>=1){ const dmg=Math.min(Math.floor(budget),wallHp); wall[idx]-=dmg; budget-=dmg; spent+=dmg;
+        if(owner[idx]===0||pIdx===0) SND.play("wallChip"); }
       continue;
     }
     const prev=owner[idx];
+    if(wall[idx] && (prev===0||pIdx===0)) SND.play("wallBreak");
+    if(prev===0 && pIdx!==0) tookFromHuman++;
     owner[idx]=pIdx; defense[idx]=0; if(wall[idx]) wall[idx]=0; budget-=cost; spent+=cost;
     players[pIdx].cells++; if(prev>=0) players[prev].cells--;
     const s=structAt.get(idx); if(s){ s.alive=false; structAt.delete(idx); if(s.type==="farm") players[s.owner].farmCount--; }
@@ -167,13 +174,16 @@ function expandToward(pIdx, tx, ty, budgetCap){
     seedCandidate(c,r-1,tx,ty,pIdx); seedCandidate(c,r+1,tx,ty,pIdx);
   }
   players[pIdx].influence -= spent;
+  if(tookFromHuman>=6) SND.play("attack");   // a real bite out of the player's territory
   return spent;
 }
 function captureNode(nIdx, newOwner){
   const nd=nodes[nIdx], prev=nd.owner;
   if(prev===newOwner) return;
   const wasBase=nd.base;
-  if(wasBase){ nd.base=false; if(prev>=0){ players[prev].hasBase=false; players[prev].baseIdx=-1; } if(prev===0) flash("Base lost — income −30%"); }
+  if(wasBase){ nd.base=false; if(prev>=0){ players[prev].hasBase=false; players[prev].baseIdx=-1; } if(prev===0){ flash("Base lost — income −30%"); SND.play("baseLost"); } }
+  if(newOwner===0) SND.play("node");
+  else if(prev===0 && !wasBase) SND.play("nodeLost");
   nd.owner=newOwner;
   if(prev>=0) players[prev].nodeCount--;
   players[newOwner].nodeCount++;
@@ -187,6 +197,7 @@ function makeBase(nIdx, pIdx){
   if(pl.influence < CONFIG.BASE_COST) return false;
   pl.influence -= CONFIG.BASE_COST;
   nd.base=true; pl.hasBase=true; pl.baseIdx=nIdx;
+  if(pIdx===0) SND.play("baseBuilt");
   if(!reduceMotion) flashes.push({cx:nd.cx, cy:nd.cy, t:0, rgb:pl.rgb, big:true});
   return true;
 }
@@ -277,9 +288,9 @@ function pickNextZone(){
 function stepZone(dt){
   zone.timer-=dt;
   if(zone.state==="calm"){
-    if(zone.timer<=0){ pickNextZone(); zone.state="warn"; zone.timer=CONFIG.ZONE_WARN; flash("The zone is moving — 20s"); }
+    if(zone.timer<=0){ pickNextZone(); zone.state="warn"; zone.timer=CONFIG.ZONE_WARN; flash("The zone is moving — 20s"); SND.play("zoneWarn"); }
   } else if(zone.state==="warn"){
-    if(zone.timer<=0){ zone.state="shrink"; zone.timer=CONFIG.ZONE_SHRINK; zone.from={...zone.cur}; flash("The zone is collapsing!"); }
+    if(zone.timer<=0){ zone.state="shrink"; zone.timer=CONFIG.ZONE_SHRINK; zone.from={...zone.cur}; flash("The zone is collapsing!"); SND.play("zoneShrink"); }
   } else if(zone.state==="shrink"){
     const t=1-Math.max(0,zone.timer)/CONFIG.ZONE_SHRINK;
     zone.cur={ cx:zone.from.cx+(zone.next.cx-zone.from.cx)*t,
@@ -288,7 +299,7 @@ function stepZone(dt){
     voidOutside(zone.cur);
     if(zone.timer<=0){
       zone.cur={...zone.next}; zone.next=null; zone.phase++;
-      if(zone.phase>=CONFIG.ZONE_PHASES){ zone.state="final"; zone.timer=CONFIG.ZONE_FINAL; flash("Final zone — most ground wins!"); }
+      if(zone.phase>=CONFIG.ZONE_PHASES){ zone.state="final"; zone.timer=CONFIG.ZONE_FINAL; flash("Final zone — most ground wins!"); SND.play("zoneWarn"); }
       else { zone.state="calm"; zone.timer=CONFIG.ZONE_CALM; }
     }
   } else if(zone.state==="final"){
@@ -331,6 +342,7 @@ function paintWall(cx,cy){
   if(owner[idx]!==0 || wall[idx] || cellNode[idx]>=0 || structAt.has(idx)) return;
   if(players[0].influence < CONFIG.WALL_COST){ if(!wallWarned){ flash(`Need ${CONFIG.WALL_COST} influence`); wallWarned=true; } return; }
   wall[idx]=CONFIG.WALL_HP; players[0].influence -= CONFIG.WALL_COST;
+  SND.play("wallPlace");
 }
 function placeBuild(cx,cy,type){
   if(phase!=="play") return;
@@ -343,6 +355,7 @@ function placeBuild(cx,cy,type){
   players[0].influence -= cost;
   const b={cx,cy,type,owner:0,acc:0,alive:true}; builds.push(b); structAt.set(idx,b);
   if(type==="farm") players[0].farmCount++;
+  SND.play(type==="farm"?"farm":"outpost");
   if(!reduceMotion) flashes.push({cx,cy,t:0,rgb:players[0].rgb,big:true});
   flash(type==="farm"?"Farm built · +"+CONFIG.FARM_YIELD+"/"+CONFIG.FARM_PERIOD+"s":"Outpost built · forward supply");
 }
@@ -370,7 +383,7 @@ function outpostFire(b){
   for(; i<enemyCells.length && shots>0; i++){ claim(enemyCells[i]); shots--; }   // eat into enemies first
   for(let j=0; j<emptyCells.length && shots>0; j++){ claim(emptyCells[j]); shots--; }
   for(; i<enemyCells.length; i++){ const idx=enemyCells[i]; if(defense[idx]>0) defense[idx]=Math.max(0,defense[idx]-CONFIG.OUTPOST_ERODE); } // soften the rest
-  if(own===0 && !reduceMotion) flashes.push({cx:b.cx,cy:b.cy,t:0,rgb:players[0].rgb});
+  if(own===0){ SND.play("outpostFire"); if(!reduceMotion) flashes.push({cx:b.cx,cy:b.cy,t:0,rgb:players[0].rgb}); }
 }
 // Bombard: an aimed strike that blasts a neutral crater out of RIVAL territory within your supply
 // reach — strips their cells, entrenchment and structures so you can pour into the gap. On cooldown.
@@ -398,7 +411,7 @@ function tryBombard(cx,cy){
   if(me.influence<CONFIG.BOMBARD_COST){ flash(`Need ${CONFIG.BOMBARD_COST} influence`); return; }
   if(supplyPenalty(cx,cy,0)>0){ flash("Target out of supply range"); return; }
   me.influence-=CONFIG.BOMBARD_COST; bombardCd=CONFIG.BOMBARD_COOLDOWN;
-  bombard(cx,cy,0); flash("Bombs away!");
+  bombard(cx,cy,0); SND.play("bomb"); flash("Bombs away!");
 }
 function spawnCellFree(cx,cy){
   if(cx<0||cy<0||cx>=COLS||cy>=ROWS) return false;
@@ -444,8 +457,10 @@ function beginPlay(){
   rebuildCellNode();
   phase="play"; playStart=performance.now(); lastT=performance.now();
   spawnHint.style.display="none"; setBuildMode(null); setBuildEnabled(true);
+  SND.play("go");
 }
 function newRound(){
+  SND.music(false);
   clearGrid();
   setBuildMode(null); setBuildEnabled(false);
   players.forEach(pl=>{ pl.cells=0; pl.nodeCount=0; pl.farmCount=0; pl.alive=true; pl.influence=CONFIG.START_INFLUENCE; pl._next=0; pl.hasBase=false; pl.baseIdx=-1; pl._spawnSet=false; });
@@ -639,7 +654,7 @@ function endPointer(e){
           if(!handled){
             const budget=Math.ceil(me.influence*commitPct/100);
             if(budget<1) flash("Not enough influence");
-            else { const got=expandToward(0,cx,cy,budget); if(got===0) flash("Can't push there yet"); }
+            else { const got=expandToward(0,cx,cy,budget); if(got===0) flash("Can't push there yet"); else SND.play("expand",{p:Math.min(1,got/250)}); }
           }
         }
       }
@@ -663,6 +678,7 @@ addEventListener("keydown", e=>{
   if(t && t.tagName==="INPUT" && t.type!=="range") return;   // don't hijack typing in name/tag/number fields
   const k=e.key.toLowerCase();
   if(phase==="play" && !e.repeat && HOTKEYS[k]){ const m=HOTKEYS[k]; setBuildMode(buildMode===m?null:m); return; }
+  if(k==="m" && !e.repeat){ SND.toggle(); updateSndBtn(); return; }
   keys.add(k);
 });
 addEventListener("keyup",   e=>{ keys.delete(e.key.toLowerCase()); });
@@ -968,6 +984,7 @@ function showSetup(){
   oSub.innerHTML="Spend influence to claim land — it goes into cells one-for-one. Pick a spawn, then <b>tap toward where you want to grow</b>. Empty land is cheap; enemy land costs more the longer it's held. Capture <b>nodes</b> for income, guard your <b>base</b>, and spend influence on <b>walls, farms, outposts and bombs</b> from the bottom bar (keys <b>1–4</b>). Most ground when the clock runs out — or last one standing in battle royale.<div style=\"margin-top:12px\"><a class=\"howto\" href=\"index.html\">How to play</a></div>";
   oSetup.style.display=""; oStandings.innerHTML=""; oBtn.textContent="Start";
   overlay.classList.remove("hidden"); buildSetup();
+  SND.music(true);
 }
 function startFromSetup(){
   const sel=setupSel.mode||"timed";
@@ -1004,8 +1021,14 @@ wallBtn.addEventListener("click",()=>setBuildMode(buildMode==="wall"?null:"wall"
 farmBtn.addEventListener("click",()=>setBuildMode(buildMode==="farm"?null:"farm"));
 outBtn.addEventListener("click",()=>setBuildMode(buildMode==="outpost"?null:"outpost"));
 bombBtn.addEventListener("click",()=>setBuildMode(buildMode==="bombard"?null:"bombard"));
+const sndBtn=document.getElementById("sndBtn");
+function updateSndBtn(){ sndBtn.textContent = SND.enabled() ? "♪ On" : "♪ Off"; }
+sndBtn.addEventListener("click",()=>{ SND.toggle(); updateSndBtn(); });
+updateSndBtn();
 function endRound(winner){
   running=false; phase="over"; spawnHint.style.display="none"; setBuildMode(null); setBuildEnabled(false);
+  const humanWon = winner && (gameMode==="team" ? (players[winner.idx].team===0 && players[0].alive) : winner.isHuman);
+  SND.play(humanWon?"win":"lose"); SND.music(true);
   const ranked=[...players].sort((a,b)=>b.cells-a.cells);
   let teamRows="";
   if(gameMode==="team"){

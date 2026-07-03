@@ -67,6 +67,7 @@ You have **influence**. It buys land — one point per cell. Land and captured *
 | Grow | Click toward target | Tap toward target |
 | Pan / Zoom | Drag / wheel (WASD too) | Drag / pinch |
 | Tools | Keys `1`–`4` or bottom bar | Bottom bar |
+| Sound | `M` or the ♪ button | ♪ button |
 | Jump | Click minimap | Tap minimap |
 
 ## 🤖 Modes & bots
@@ -85,6 +86,8 @@ You have **influence**. It buys land — one point per cell. Land and captured *
 ├── influence.html  # game markup
 ├── influence.css   # game styles
 ├── influence.js    # game logic
+├── sound.js        # procedural music & sound effects (Web Audio)
+├── changelog.html  # the changelog as a page on the site
 ├── screenshots/    # README & tutorial images
 ├── CHANGELOG.md    # what changed, newest first
 └── favicon.svg
