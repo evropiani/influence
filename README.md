@@ -2,11 +2,12 @@
 
 # I N F L U E N C E
 
-🟥🟥🟥⬛🟧⬛⬛🟧⬛🟨🟨🟨⬛🟩⬛⬛⬛🟦⬛⬛🟦⬛🟪🟪🟪⬛🟥⬛⬛🟥⬛⬛🟧🟧⬛🟨🟨🟨<br>
-⬛🟥⬛⬛🟧🟧⬛🟧⬛🟨⬛⬛⬛🟩⬛⬛⬛🟦⬛⬛🟦⬛🟪⬛⬛⬛🟥🟥⬛🟥⬛🟧⬛⬛⬛🟨⬛⬛<br>
-⬛🟥⬛⬛🟧⬛🟧🟧⬛🟨🟨⬛⬛🟩⬛⬛⬛🟦⬛⬛🟦⬛🟪🟪⬛⬛🟥⬛🟥🟥⬛🟧⬛⬛⬛🟨🟨⬛<br>
-⬛🟥⬛⬛🟧⬛⬛🟧⬛🟨⬛⬛⬛🟩⬛⬛⬛🟦⬛⬛🟦⬛🟪⬛⬛⬛🟥⬛⬛🟥⬛🟧⬛⬛⬛🟨⬛⬛<br>
-🟥🟥🟥⬛🟧⬛⬛🟧⬛🟨⬛⬛⬛🟩🟩🟩⬛🟦🟦🟦🟦⬛🟪🟪🟪⬛🟥⬛⬛🟥⬛⬛🟧🟧⬛🟨🟨🟨
+🟥🟥🟥🟥⬛⬛🟦🟦🟦⬛⬛⬛🟨🟨🟨🟨🟨🟨<br>
+🟥🟥🟥⬛⬛🟦🟦🟦🟦🟦⬛🟨🟨🟨🟨🟨🟨🟨<br>
+🟥🟥⬛⬜⬜⬜⬛🟦🟦🟦⬛⬛🟨🟨🟨🟨🟨🟨<br>
+⬛⬛⬜⬜⬛⬛⬛⬛🟦🟦🟦⬛⬛⬛🟪🟪🟪🟪<br>
+🟩🟩⬛⬛⬛🟧🟧🟧🟧⬛🟦🟦⬛🟪🟪🟪🟪🟪<br>
+🟩🟩🟩🟩⬛🟧🟧🟧🟧🟧⬛⬛🟪🟪🟪🟪🟪🟪
 
 **A fast browser land-grab.** Paint the map your colour, feed your economy, ruin somebody's afternoon.
 
@@ -73,7 +74,9 @@ You have **influence**. It buys land — one point per cell. Land and captured *
 ## 🤖 Modes & bots
 
 - **Classic** — most territory when the clock runs out wins.
-- **Battle royale** — no timer, last one standing wins.
+- **Battle Royale** — no timer, last one standing wins.
+- **King Of The Hill** 👑 — one **golden zone** at the map's center. Hold more than half of it to build up **60 cumulative seconds** of control and win. Everyone fights over the same ground.
+- **Domination** 🚀 — a race: **first player to 75% of the map wins**. Bombs on a 5s cooldown, farms pay +250, outposts fire every 6s. Pure aggression.
 - **The Zone** 🔴 — a circular map that collapses in **5 phases** (2 min each) toward a **random** spot — a red ring warns you 20 seconds ahead. Whatever falls outside is crushed, *including nodes* — and their cap and income die with them.
 - **2v2 / 3v3** ⚔️ — bot allies in **your colour**. No friendly fire, shared supply range, most combined ground wins.
 - **Difficulty** — Easy / Normal / Hard. Harder bots think faster, commit harder, and build farms and outposts of their own. Up to **99** opponents, if you're feeling brave.
@@ -88,6 +91,7 @@ You have **influence**. It buys land — one point per cell. Land and captured *
 ├── influence.js    # game logic
 ├── sound.js        # procedural music & sound effects (Web Audio)
 ├── changelog.html  # the changelog as a page on the site
+├── imprint.html    # legal notice / imprint
 ├── screenshots/    # README & tutorial images
 ├── CHANGELOG.md    # what changed, newest first
 └── favicon.svg
@@ -114,3 +118,11 @@ Hosted on GitHub Pages straight from this repo — push to `main` and the live s
 ## 💬 Feedback
 
 It's a beta — expect things to change, break, and get better. Ideas, bugs, balance gripes: [@evropiani on Discord](https://discord.com/users/319246364246540288/).
+
+---
+
+<div align="center">
+
+© 2026 evropiani · <sub>✳ Made with Claude</sub>
+
+</div>

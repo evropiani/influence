@@ -89,6 +89,8 @@
     text-decoration:none;color:#141821;background:var(--accent);border-radius:10px;padding:12px 26px;margin-top:6px}
   a.play:hover{filter:brightness(1.08)}
   footer{color:var(--muted);font-size:12px;text-align:center;margin-top:28px;font-family:var(--mono)}
+  footer a{color:var(--muted)} footer a:hover{color:var(--ink)}
+  .mwc{color:var(--accent);opacity:.75;font-size:11px;margin-top:5px}
 </style>
 </head>
 <body>
@@ -106,6 +108,8 @@
     <summary>Latest changes <span class="when">· 2026-07-03</span></summary>
     <div class="inner">
       <ul>
+        <li><b>New mode — King Of The Hill:</b> a <b>golden zone</b> at the map's center — own more than half of it for <b>60 cumulative seconds</b> to win.</li>
+        <li><b>New mode — Domination:</b> no clock, first player to <b>75% of the map</b> wins. Bombs recharge in 5s, farms pay +250, outposts fire every 6s.</li>
         <li><b>Sound is in:</b> ambient menu music and effects for expanding, bombs, wall cracks and breaks, captures, zone alarms and more — all synthesized live, no downloads. Toggle with <span class="kbd">M</span> or the ♪ button.</li>
         <li><b>Bomb fixed:</b> craters now <b>burn for 10 seconds</b> — visible scorched ground the bombed player can't instantly flood back into. You can, though. Bomb, then pour in.</li>
         <li>The "Full changelog" link below now stays on this site.</li>
@@ -251,7 +255,7 @@
   </details>
 
   <details class="acc">
-    <summary>Battle royale</summary>
+    <summary>Battle Royale</summary>
     <div class="inner">
       <p>No clock. <b>Lose all your land and you're out — last one standing wins.</b></p>
       <img class="shot" src="screenshots/royale.png" alt="Battle royale: eliminated players shown greyed out in the scoreboard" loading="lazy">
@@ -262,6 +266,37 @@
         <li>Build a tight economy: nodes, farms, and walls around your core.</li>
         <li>Strike players who just lost a fight — their fresh land is bright and cheap.</li>
         <li>When someone's eliminated, their leftover ground is free real estate. Snowball it.</li>
+      </ol>
+    </div>
+  </details>
+
+  <details class="acc">
+    <summary>King Of The Hill</summary>
+    <div class="inner">
+      <p>One <span class="accent">golden zone</span> in the middle of the map. Own <b>more than half of it</b> and your hold-timer ticks up — <b>60 cumulative seconds wins</b>. Everyone wants the same ground; go get it.</p>
+      <img class="shot" src="screenshots/hill.png" alt="King Of The Hill: the golden zone at the map center with players converging" loading="lazy">
+      <p class="caption">The dashed gold ring is the hill; the coloured arc around it is the leader's hold progress.</p>
+      <ol class="steps">
+        <li>The timer is <b>cumulative</b> — getting knocked off the hill pauses your clock, it doesn't reset it. Early pressure is never wasted.</li>
+        <li>Don't rush in broke: the hill is poor ground. Grab nearby <b>nodes and a farm</b> first so you can afford the endless fight.</li>
+        <li><b>Bomb the hill</b> when an enemy is dug in — the burning crater denies <i>their</i> timer while you move in.</li>
+        <li>Wall the approaches on your side; every second an attacker spends chipping is a second you hold.</li>
+        <li>Watch the arc around the ring — when someone's colour closes the circle, they win. Gang up on the leader.</li>
+      </ol>
+    </div>
+  </details>
+
+  <details class="acc">
+    <summary>Domination</summary>
+    <div class="inner">
+      <p>A pure race: <b>first player to hold 75% of the map wins</b>. No clock, and everything is turbo-charged — bombs recharge in <span class="accent">5 seconds</span>, farms pay <span class="accent">+250</span>, outposts fire every <span class="accent">6 seconds</span>.</p>
+      <img class="shot" src="screenshots/domination.png" alt="Domination: one player snowballing across the map" loading="lazy">
+      <ol class="steps">
+        <li>Forget careful borders — <b>speed is everything</b>. Grab nodes and drop farms immediately; the boosted payouts snowball fast.</li>
+        <li><b>Bomb constantly.</b> At a 5-second cooldown, the bomb is your main weapon, not a special.</li>
+        <li>Chain outposts forward — at double speed they chew through enemies while you expand elsewhere.</li>
+        <li>Watch the scoreboard percentages: when someone pulls ahead, <b>hit the leader</b>, not your neighbour.</li>
+        <li>The race ends the instant anyone touches <span class="accent">75%</span> — don't bank influence you could spend.</li>
       </ol>
     </div>
   </details>
@@ -315,7 +350,9 @@
     <a class="play" href="influence.html">Play</a>
   </section>
 
-  <footer>Influence · Beta</footer>
+  <footer>Influence · Beta · © 2026 evropiani · <a href="imprint.html">Imprint</a>
+    <div class="mwc">✳ Made with Claude</div>
+  </footer>
 </div>
 </body>
 </html>

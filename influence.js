@@ -24,6 +24,7 @@ const CONFIG = {
   OBSTACLES:true, OBSTACLE_CLUSTERS:42, OBSTACLE_LEN_MIN:12, OBSTACLE_LEN_MAX:40,
   OBSTACLE_THICK_MIN:1, OBSTACLE_THICK_MAX:2.6, OBSTACLE_NODE_GAP:3, OBSTACLE_INTERVAL:16,
   ZONE_PHASES:5, ZONE_CALM:85, ZONE_WARN:20, ZONE_SHRINK:15, ZONE_FACTOR:0.62, ZONE_FINAL:60,
+  HILL_R:15, HILL_HOLD:60, HILL_CONTROL:0.5,
   DEFAULT_PCT:50,
   ZOOM_MIN:0.28, ZOOM_MAX:1.7, ZOOM_START:0.7, PAN_KEY_SPEED:760,
   BOT_SKILL:0.6,
@@ -94,6 +95,18 @@ let spawnLeft=0, playStart=0, obstacleTimer=0, bombardCd=0;
 let buildMode=null;
 let gameMode="timed";
 let teamSize=2;
+// Per-round rule overrides. Domination is a race: rapid bombs, rich farms, fast outposts.
+let MODS={bombCd:CONFIG.BOMBARD_COOLDOWN, farmYield:CONFIG.FARM_YIELD, outPeriod:CONFIG.OUTPOST_PERIOD};
+const DOM_WIN=0.75;
+function refreshMods(){
+  MODS = gameMode==="dom"
+    ? { bombCd:5, farmYield:250, outPeriod:6 }
+    : { bombCd:CONFIG.BOMBARD_COOLDOWN, farmYield:CONFIG.FARM_YIELD, outPeriod:CONFIG.OUTPOST_PERIOD };
+}
+// King Of The Hill: one golden zone at the map's center. Whoever owns more than half of it
+// accrues hold-time; the first to HILL_HOLD cumulative seconds wins.
+const hillMask=new Uint8Array(N);
+let hillC=null, hillCells=[], hillCtrl=-1;
 let zone={state:"idle"};   // The Zone mode: calm -> warn (red ring) -> shrink -> ... -> final
 let wallWarned=false;
 
@@ -202,7 +215,7 @@ function makeBase(nIdx, pIdx){
   return true;
 }
 
-function clearGrid(){ owner.fill(-1); cellNode.fill(-1); stamp.fill(0); defense.fill(0); wall.fill(0); blocked.fill(0); scorchUntil.fill(0); scorchBy.fill(-1); simTime=0; gen=0; nodes=[]; flashes=[]; builds=[]; structAt.clear(); }
+function clearGrid(){ owner.fill(-1); cellNode.fill(-1); stamp.fill(0); defense.fill(0); wall.fill(0); blocked.fill(0); scorchUntil.fill(0); scorchBy.fill(-1); hillMask.fill(0); simTime=0; gen=0; nodes=[]; flashes=[]; builds=[]; structAt.clear(); }
 function farFromNodes(cx,cy,minD){ for(const nd of nodes){ const dx=nd.cx-cx,dy=nd.cy-cy; if(dx*dx+dy*dy<minD*minD) return false; } return true; }
 function scatterNeutralNodes(){
   let guard=0;
@@ -223,7 +236,7 @@ function stampObstacle(cx,cy,r){
     const c=cx+dc, ry=cy+dr;
     if(c<1||ry<1||c>=COLS-1||ry>=ROWS-1) continue;
     const i=ry*COLS+c;
-    if(owner[i]!==-1 || blocked[i]) continue;                    // never overwrite claimed land or zone void
+    if(owner[i]!==-1 || blocked[i] || hillMask[i]) continue;     // never overwrite claimed land, void, or the hill
     if(cellNode[i]>=0) continue;                                 // never bury a node
     if(!farFromNodes(c,ry,CONFIG.OBSTACLE_NODE_GAP)) continue;   // keep nodes reachable
     blocked[i]=1;
@@ -357,7 +370,7 @@ function placeBuild(cx,cy,type){
   if(type==="farm") players[0].farmCount++;
   SND.play(type==="farm"?"farm":"outpost");
   if(!reduceMotion) flashes.push({cx,cy,t:0,rgb:players[0].rgb,big:true});
-  flash(type==="farm"?"Farm built · +"+CONFIG.FARM_YIELD+"/"+CONFIG.FARM_PERIOD+"s":"Outpost built · forward supply");
+  flash(type==="farm"?"Farm built · +"+MODS.farmYield+"/"+CONFIG.FARM_PERIOD+"s":"Outpost built · forward supply");
 }
 function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=(Math.random()*(i+1))|0, t=a[i]; a[i]=a[j]; a[j]=t; } }
 function outpostFire(b){
@@ -410,12 +423,13 @@ function tryBombard(cx,cy){
   if(bombardCd>0){ flash(`Bomb recharging · ${Math.ceil(bombardCd)}s`); return; }
   if(me.influence<CONFIG.BOMBARD_COST){ flash(`Need ${CONFIG.BOMBARD_COST} influence`); return; }
   if(supplyPenalty(cx,cy,0)>0){ flash("Target out of supply range"); return; }
-  me.influence-=CONFIG.BOMBARD_COST; bombardCd=CONFIG.BOMBARD_COOLDOWN;
+  me.influence-=CONFIG.BOMBARD_COST; bombardCd=MODS.bombCd;
   bombard(cx,cy,0); SND.play("bomb"); flash("Bombs away!");
 }
 function spawnCellFree(cx,cy){
   if(cx<0||cy<0||cx>=COLS||cy>=ROWS) return false;
   if(blocked[cy*COLS+cx]) return false;
+  if(hillC){ const dx=cx-hillC.cx, dy=cy-hillC.cy, keep=hillC.r+CONFIG.START_R+2; if(dx*dx+dy*dy<keep*keep) return false; }
   const md=CONFIG.START_R+1;
   for(const nd of nodes){ const dx=nd.cx-cx,dy=nd.cy-cy; if(dx*dx+dy*dy < md*md) return false; }
   return true;
@@ -461,9 +475,19 @@ function beginPlay(){
 }
 function newRound(){
   SND.music(false);
+  refreshMods();
   clearGrid();
   setBuildMode(null); setBuildEnabled(false);
-  players.forEach(pl=>{ pl.cells=0; pl.nodeCount=0; pl.farmCount=0; pl.alive=true; pl.influence=CONFIG.START_INFLUENCE; pl._next=0; pl.hasBase=false; pl.baseIdx=-1; pl._spawnSet=false; });
+  players.forEach(pl=>{ pl.cells=0; pl.nodeCount=0; pl.farmCount=0; pl.alive=true; pl.influence=CONFIG.START_INFLUENCE; pl._next=0; pl.hasBase=false; pl.baseIdx=-1; pl._spawnSet=false; pl._hill=0; });
+  hillC=null; hillCells=[]; hillCtrl=-1;
+  if(gameMode==="hill"){
+    hillC={cx:(COLS/2)|0, cy:(ROWS/2)|0, r:CONFIG.HILL_R};
+    const r2=hillC.r*hillC.r;
+    for(let r=hillC.cy-hillC.r;r<=hillC.cy+hillC.r;r++) for(let c=hillC.cx-hillC.r;c<=hillC.cx+hillC.r;c++){
+      const dx=c-hillC.cx, dy=r-hillC.cy;
+      if(dx*dx+dy*dy<=r2){ const i=r*COLS+c; hillMask[i]=1; hillCells.push(i); }
+    }
+  }
   if(gameMode==="zone"){
     zone={state:"calm", phase:0, timer:CONFIG.ZONE_CALM, cur:{cx:COLS/2, cy:ROWS/2, r:Math.min(COLS,ROWS)/2-4}, next:null, from:null};
     voidOutside(zone.cur);                                   // circular battlefield from the start
@@ -526,6 +550,11 @@ function botTurn(pl, now){
     else if(pl.influence>=CONFIG.OUTPOST_COST*1.4 && Math.random()<botCfg.outChance){
       if(botPlaceBuild(pl,"outpost",true)){ pl._next=now+botDelay(); return; } }
   }
+  // King Of The Hill: bots converge on the golden zone (harder bots more single-mindedly).
+  if(gameMode==="hill" && hillC && hillCtrl!==pl.idx && Math.random() < 0.35+skill*0.4){
+    const budget=Math.ceil(pl.influence*(0.4+skill*0.4));
+    if(budget>=1){ expandToward(pl.idx, hillC.cx, hillC.cy, budget); pl._next=now+botDelay(); return; }
+  }
   let sx=0,sy=0,k=0; for(const nd of nodes) if(nd.owner===pl.idx){ sx+=nd.cx; sy+=nd.cy; k++; }
   if(k===0){ pl._next=now+1000; return; }
   sx/=k; sy/=k;
@@ -546,8 +575,8 @@ function step(dt){
   for(const pl of players){ if(!pl.isHuman && pl.alive && now>=pl._next) botTurn(pl,now); }
 
   for(const b of builds){ if(!b.alive) continue; b.acc+=dt;
-    if(b.type==="farm"){ if(b.acc>=CONFIG.FARM_PERIOD){ b.acc-=CONFIG.FARM_PERIOD; players[b.owner].influence+=CONFIG.FARM_YIELD; if(!reduceMotion) flashes.push({cx:b.cx,cy:b.cy,t:0,rgb:players[b.owner].rgb}); } }
-    else { if(b.acc>=CONFIG.OUTPOST_PERIOD){ b.acc-=CONFIG.OUTPOST_PERIOD; outpostFire(b); } } }
+    if(b.type==="farm"){ if(b.acc>=CONFIG.FARM_PERIOD){ b.acc-=CONFIG.FARM_PERIOD; players[b.owner].influence+=MODS.farmYield; if(!reduceMotion) flashes.push({cx:b.cx,cy:b.cy,t:0,rgb:players[b.owner].rgb}); } }
+    else { if(b.acc>=MODS.outPeriod){ b.acc-=MODS.outPeriod; outpostFire(b); } } }
 
   if(CONFIG.OBSTACLES){ obstacleTimer-=dt; if(obstacleTimer<=0){ obstacleTimer=CONFIG.OBSTACLE_INTERVAL; spawnDynamicObstacle(); } }
   if(bombardCd>0) bombardCd=Math.max(0,bombardCd-dt);
@@ -576,6 +605,18 @@ function step(dt){
   }
   const aliveP=players.filter(p=>p.alive);
   if(aliveP.length<=1){ endRound(aliveP[0]||null); return; }
+  if(gameMode==="dom"){ const top=topPlayer(); if(top.alive && top.cells>=N*DOM_WIN){ endRound(top); return; } }
+  if(gameMode==="hill" && hillC){
+    const cnt={}; let best=-1, bestN=0;
+    for(const i of hillCells){ const o=owner[i]; if(o<0) continue; const c=(cnt[o]=(cnt[o]||0)+1); if(c>bestN){ bestN=c; best=o; } }
+    const ctrl = (best>=0 && bestN > hillCells.length*CONFIG.HILL_CONTROL) ? best : -1;
+    if(ctrl!==hillCtrl){
+      if(ctrl===0){ flash("You control the hill!"); SND.play("node"); }
+      else if(hillCtrl===0){ flash("Hill control lost"); SND.play("nodeLost"); }
+      hillCtrl=ctrl;
+    }
+    if(ctrl>=0){ const p=players[ctrl]; p._hill+=dt; if(p._hill>=CONFIG.HILL_HOLD){ endRound(p); return; } }
+  }
   if(gameMode==="zone"){ stepZone(dt); if(phase==="over") return; }
   if(gameMode==="timed"||gameMode==="team"){ timeLeft-=dt; if(timeLeft<=0){ timeLeft=0; endRound(gameMode==="team"?topTeamPlayer(leadingTeam()):topPlayer()); } }
 }
@@ -712,6 +753,9 @@ function render(){
         } else if(scorchUntil[idx]>simTime){
           const sx=(c*CELL-cam.x)*cam.zoom;
           ctx.fillStyle="rgb(58,36,26)"; ctx.fillRect(sx, sy, cw+1, cw+1);                      // burning bomb crater
+        } else if(hillMask[idx]){
+          const sx=(c*CELL-cam.x)*cam.zoom;
+          ctx.fillStyle="rgb(49,42,24)"; ctx.fillRect(sx, sy, cw+1, cw+1);                      // the golden hill
         }
         continue;
       }
@@ -816,6 +860,20 @@ function render(){
     ctx.beginPath(); ctx.arc(zx,zy,zone.next.r*CELL*cam.zoom,0,Math.PI*2); ctx.stroke();
   }
 
+  if(gameMode==="hill" && hillC){
+    const hx=((hillC.cx+0.5)*CELL-cam.x)*cam.zoom, hy=((hillC.cy+0.5)*CELL-cam.y)*cam.zoom;
+    const hr=(hillC.r+0.5)*CELL*cam.zoom;
+    ctx.strokeStyle="rgba(201,162,75,0.85)"; ctx.lineWidth=3; ctx.setLineDash([7,6]);
+    ctx.beginPath(); ctx.arc(hx,hy,hr,0,Math.PI*2); ctx.stroke(); ctx.setLineDash([]);
+    // progress arc: the hold-time leader's colour fills the ring as they approach the win
+    let lead=null; for(const p of players) if(p._hill>0 && (!lead||p._hill>lead._hill)) lead=p;
+    if(lead){
+      const frac=Math.min(1,lead._hill/CONFIG.HILL_HOLD);
+      ctx.strokeStyle=rgbStr(lead.rgb, hillCtrl===lead.idx?0.95:0.5); ctx.lineWidth=5;
+      ctx.beginPath(); ctx.arc(hx,hy,hr+6*cam.zoom,-Math.PI/2,-Math.PI/2+frac*Math.PI*2); ctx.stroke();
+    }
+  }
+
   if(lastCursorCell && pointers.size===0){
     const {cx,cy}=lastCursorCell;
     if(cx>=0&&cy>=0&&cx<COLS&&cy<ROWS){
@@ -851,6 +909,10 @@ function drawMinimap(){
     mctx.strokeStyle="rgba(215,70,58,0.95)"; mctx.lineWidth=1.5;
     mctx.beginPath(); mctx.ellipse(zone.next.cx*CELL*scx, zone.next.cy*CELL*scy, zone.next.r*CELL*scx, zone.next.r*CELL*scy, 0, 0, Math.PI*2); mctx.stroke();
   }
+  if(gameMode==="hill" && hillC){
+    mctx.strokeStyle="rgba(201,162,75,0.95)"; mctx.lineWidth=1.5;
+    mctx.beginPath(); mctx.ellipse(hillC.cx*CELL*scx, hillC.cy*CELL*scy, hillC.r*CELL*scx, hillC.r*CELL*scy, 0, 0, Math.PI*2); mctx.stroke();
+  }
   mctx.strokeStyle="rgba(231,233,238,0.85)"; mctx.lineWidth=1;
   mctx.strokeRect(cam.x*scx, cam.y*scy, (VIEW_W/cam.zoom)*scx, (VIEW_H/cam.zoom)*scy);
 }
@@ -879,7 +941,7 @@ const clockEl=document.getElementById("clock"), infV=document.querySelector("#in
 function drawClock(){
   if(gameMode==="zone"){ const s=Math.max(0,Math.ceil(zone.timer)), m=(s/60)|0, ss=s%60;
     clockEl.textContent=`${m}:${ss<10?"0":""}${ss}`; clockEl.classList.toggle("warn", zone.state==="warn"||zone.state==="shrink"); }
-  else if(gameMode==="royale"){ const el=Math.max(0,(performance.now()-playStart)/1000), m=Math.floor(el/60), s=Math.floor(el%60);
+  else if(gameMode==="royale"||gameMode==="dom"||gameMode==="hill"){ const el=Math.max(0,(performance.now()-playStart)/1000), m=Math.floor(el/60), s=Math.floor(el%60);
     clockEl.textContent=`${m}:${s<10?"0":""}${s}`; clockEl.classList.remove("warn"); }
   else { const m=Math.floor(timeLeft/60), s=Math.floor(timeLeft%60);
     clockEl.textContent=`${m}:${s<10?"0":""}${s}`; clockEl.classList.toggle("warn",timeLeft<=20); }
@@ -925,6 +987,7 @@ function updateHUD(){
       if(blocked[idx]) cellInfo.textContent="barrier · impassable";
       else if(ow===0) cellInfo.textContent = wall[idx]?`your wall · ${wall[idx]}/${CONFIG.WALL_HP}`:"your land";
       else if(ow<0 && scorchUntil[idx]>simTime) cellInfo.textContent=`crater · burning ${Math.ceil(scorchUntil[idx]-simTime)}s`;
+      else if(ow<0 && hillMask[idx]) cellInfo.textContent=`the hill · hold over half for ${CONFIG.HILL_HOLD}s`;
       else if(ow<0) cellInfo.textContent=`empty · ${1+pen}/cell`;
       else cellInfo.textContent=`enemy · ${enemyCost(idx)+wall[idx]+pen}/cell`;
     } else cellInfo.textContent="";
@@ -973,7 +1036,7 @@ function buildSetup(){
     df.appendChild(b); });
 
   const md=document.getElementById("mode"); md.innerHTML="";
-  [["timed","Classic"],["royale","Battle royale"],["zone","The Zone"],["team2","2v2"],["team3","3v3"]].forEach(([val,lab])=>{ const b=document.createElement("button");
+  [["timed","Classic"],["royale","Battle Royale"],["hill","King Of The Hill"],["dom","Domination"],["zone","The Zone"],["team2","2v2"],["team3","3v3"]].forEach(([val,lab])=>{ const b=document.createElement("button");
     b.className="seg"+(setupSel.mode===val?" sel":""); b.textContent=lab;
     b.onclick=()=>{ setupSel.mode=val; [...md.children].forEach(c=>c.classList.remove("sel")); b.classList.add("sel");
       num.disabled = val==="team2"||val==="team3"; };
@@ -981,7 +1044,7 @@ function buildSetup(){
 }
 function showSetup(){
   oTitle.textContent="Influence";
-  oSub.innerHTML="Spend influence to claim land — it goes into cells one-for-one. Pick a spawn, then <b>tap toward where you want to grow</b>. Empty land is cheap; enemy land costs more the longer it's held. Capture <b>nodes</b> for income, guard your <b>base</b>, and spend influence on <b>walls, farms, outposts and bombs</b> from the bottom bar (keys <b>1–4</b>). Most ground when the clock runs out — or last one standing in battle royale.<div style=\"margin-top:12px\"><a class=\"howto\" href=\"index.html\">How to play</a></div>";
+  oSub.innerHTML="Spend influence to claim land — it goes into cells one-for-one. Pick a spawn, then <b>tap toward where you want to grow</b>. Empty land is cheap; enemy land costs more the longer it's held. Capture <b>nodes</b> for income, guard your <b>base</b>, and spend influence on <b>walls, farms, outposts and bombs</b> from the bottom bar (keys <b>1–4</b>). Most ground when the clock runs out — or last one standing in Battle Royale.<div style=\"margin-top:12px\"><a class=\"howto\" href=\"index.html\">How to play</a></div>";
   oSetup.style.display=""; oStandings.innerHTML=""; oBtn.textContent="Start";
   overlay.classList.remove("hidden"); buildSetup();
   SND.music(true);
@@ -1044,9 +1107,12 @@ function endRound(winner){
   else if(winner&&winner.isHuman){ oTitle.textContent="You win";
     oSub.textContent = gameMode==="royale" ? "Last one standing."
                      : gameMode==="zone"   ? "You outlasted the zone."
+                     : gameMode==="dom"    ? "First to 75% of the map."
+                     : gameMode==="hill"   ? "You held the hill."
                      : "Most ground held when the clock stopped."; }
   else if(!players[0].alive){ oTitle.textContent="Eliminated"; oSub.textContent = gameMode==="zone" ? "The zone got you." : "All your territory was taken."; }
-  else { oTitle.textContent=(winner?dispName(winner)+" wins":"Draw"); oSub.textContent="Better luck next round."; }
+  else { oTitle.textContent=(winner?dispName(winner)+" wins":"Draw");
+    oSub.textContent = gameMode==="dom" ? "They reached 75% first." : gameMode==="hill" ? "They held the hill for 60 seconds." : "Better luck next round."; }
   oSetup.style.display="none";
   const top=ranked.slice(0,20);
   oStandings.innerHTML=teamRows+top.map(p=>`<div class="row"><span class="chip" style="background:${rgbStr(p.rgb)}"></span><span class="nm">${escapeHTML(dispName(p))}</span><span class="vv">${Math.round(p.cells/N*100)}%</span></div>`).join("")

@@ -4,6 +4,8 @@ All notable changes to **Influence**, newest first. Also published as `changelog
 
 ## 2026-07-03
 
+- **New mode — King Of The Hill**: a **golden zone** at the map's center. Own more than half of it and your hold-timer ticks up; **60 cumulative seconds wins**. Getting knocked off pauses your timer instead of resetting it, bots actively fight for the hill, spawns and barriers keep clear of it, and a coloured arc around the ring shows the leader's progress.
+- **New mode — Domination**: a race with no clock — the **first player to hold 75% of the map wins**. Everything is turbo-charged: bombs recharge in 5 seconds, farms pay +250 influence, and outposts fire every 6 seconds.
 - **Sound**: ambient generative menu music and in-game effects — expanding, bombs, wall placing/cracking/breaking, node and base captures, farms, outposts, zone alarms, round start and win/lose stingers. Everything is synthesized live in the browser (no audio files). Toggle with `M` or the ♪ button; the preference is remembered.
 - **Bomb fix**: craters now stay **scorched for 10 seconds** — the burning ground is visible on the map, and the player you bombed can't flood back in while it burns (you and your teammates can). Previously the victim usually re-took the crater within a second or two, which made every bomb after the first feel like it did nothing.
 - The changelog got a page of its own (`changelog.html`), so the "Full changelog" link works the same everywhere the game is hosted.

@@ -40,6 +40,8 @@
   a.back{color:var(--accent);font-family:var(--mono);font-size:13px;font-weight:700;text-decoration:none}
   a.back:hover{text-decoration:underline}
   footer{color:var(--muted);font-size:12px;text-align:center;margin-top:28px;font-family:var(--mono)}
+  footer a{color:var(--muted)} footer a:hover{color:var(--ink)}
+  .mwc{color:var(--accent);opacity:.75;font-size:11px;margin-top:5px}
 </style>
 </head>
 <body>
@@ -56,6 +58,8 @@
   <section>
     <h2>2026-07-03</h2>
     <ul>
+      <li><b>New mode — King Of The Hill:</b> a <b>golden zone</b> at the map's center. Own more than half of it and your hold-timer ticks up; <b>60 cumulative seconds wins</b>. Getting knocked off pauses your timer instead of resetting it, bots actively fight for the hill, and a coloured arc around the ring shows the leader's progress.</li>
+      <li><b>New mode — Domination:</b> a race with no clock — the <b>first player to hold 75% of the map wins</b>. Everything is turbo-charged: bombs recharge in 5 seconds, farms pay +250 influence, and outposts fire every 6 seconds.</li>
       <li><b>Sound:</b> ambient generative menu music and in-game effects — expanding, bombs, wall placing/cracking/breaking, node and base captures, farms, outposts, zone alarms, round start and win/lose stingers. Everything is synthesized live in the browser (no audio files). Toggle with <span class="kbd">M</span> or the ♪ button; the preference is remembered.</li>
       <li><b>Bomb fix:</b> craters now stay <span class="accent">scorched for 10 seconds</span> — the burning ground is visible on the map, and the player you bombed can't flood back in while it burns (you and your teammates can). Previously the victim usually re-took the crater within a second or two, which made every bomb after the first feel like it did nothing.</li>
       <li>The changelog got this page of its own, so the link works the same everywhere the game is hosted.</li>
@@ -91,7 +95,9 @@
     </ul>
   </section>
 
-  <footer>Influence · Beta</footer>
+  <footer>Influence · Beta · © 2026 evropiani · <a href="imprint.html">Imprint</a>
+    <div class="mwc">✳ Made with Claude</div>
+  </footer>
 </div>
 </body>
 </html>
