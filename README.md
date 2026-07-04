@@ -48,6 +48,7 @@
 You have **influence**. It buys land — one point per cell. Land and captured **nodes** make more influence. Hold the most ground when the clock stops (**Classic**) or be the last one standing (**Battle royale**). Everything else is spice.
 
 - **Bright** enemy land is fresh, soft, and cheap to take. **Dark** land is dug in and expensive.
+- Once you already dominate the map, new land costs a little more per cell — **supply lines stretch**, so a lead has to be re-earned instead of steamrolling itself. Still hard; just no runaway blowouts.
 - Nodes 🎯 pay income, raise your influence cap, and extend your reach. Steal an enemy's for a fat bonus.
 - Grey **rock barriers** ⬜ carve up the map — impassable, and new ones form *mid-round*. No sniping across open ground.
 - Lose your **base** ⭐ and your income drops 30% until you rebuild.

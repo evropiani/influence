@@ -28,6 +28,15 @@ const CONFIG = {
   DEFAULT_PCT:50,
   ZOOM_MIN:0.28, ZOOM_MAX:1.7, ZOOM_START:0.7, PAN_KEY_SPEED:760,
   BOT_SKILL:0.6,
+  // Anti-snowball: once you already hold a big share of the map, pushing into new land costs a
+  // little more per cell (supply lines stretch). A lead has to be re-earned rather than rolling
+  // itself — this curbs the runaway steamroll without making the game any easier to win outright.
+  OVEREXTEND_START:0.20, OVEREXTEND_SCALE:10, OVEREXTEND_MAX:4,
+  // A calmer, more readable opening: bots ease in over the first seconds and the first drifting
+  // barrier is held back, so the board isn't chaos from the very first click.
+  OPENING_CALM:12, OPENING_BOT_SLOW:1.9, OBSTACLE_FIRST:30,
+  // Bots act a touch less like a machine: they vary how hard they commit and occasionally hesitate.
+  BOT_HESITATE:0.18, BOT_COMMIT_JITTER:0.12,
 };
 
 // Bot behaviour profiles per difficulty. skill drives budget/aggression; build enables farms/outposts;
@@ -98,12 +107,13 @@ let buildMode=null;
 let gameMode="timed";
 let teamSize=2;
 // Per-round rule overrides. Domination is a race: rapid bombs, rich farms, fast outposts.
-let MODS={bombCd:CONFIG.BOMBARD_COOLDOWN, farmYield:CONFIG.FARM_YIELD, outPeriod:CONFIG.OUTPOST_PERIOD};
+let MODS={bombCd:CONFIG.BOMBARD_COOLDOWN, farmYield:CONFIG.FARM_YIELD, outPeriod:CONFIG.OUTPOST_PERIOD, overtax:1};
 const DOM_WIN=0.75;
 function refreshMods(){
+  // overtax scales the anti-snowball surcharge; Domination is a race to 75% so it eases off there.
   MODS = gameMode==="dom"
-    ? { bombCd:5, farmYield:250, outPeriod:6 }
-    : { bombCd:CONFIG.BOMBARD_COOLDOWN, farmYield:CONFIG.FARM_YIELD, outPeriod:CONFIG.OUTPOST_PERIOD };
+    ? { bombCd:5, farmYield:250, outPeriod:6, overtax:0.45 }
+    : { bombCd:CONFIG.BOMBARD_COOLDOWN, farmYield:CONFIG.FARM_YIELD, outPeriod:CONFIG.OUTPOST_PERIOD, overtax:1 };
 }
 // King Of The Hill: one golden zone at the map's center. Whoever owns more than half of it
 // accrues hold-time; the first to HILL_HOLD cumulative seconds wins.
@@ -128,6 +138,14 @@ const dispName=p=> p.tag ? `[${p.tag}] ${p.name}` : p.name;
 const ENTRENCH_LEVELS=5;
 const capOf=pl=>CONFIG.CAP_BASE + pl.nodeCount*CONFIG.CAP_PER_NODE + (pl.farmCount||0)*CONFIG.CAP_PER_FARM;
 const enemyCost=idx=>CONFIG.ENEMY_BASE + Math.ceil(defense[idx]);
+// Overextension surcharge: extra cost per newly-taken cell once a player already dominates the map.
+// Zero until they pass OVEREXTEND_START of the field, then ramps to OVEREXTEND_MAX. Curbs snowballing.
+function overtax(pIdx){
+  const share=players[pIdx].cells/N;
+  if(share<=CONFIG.OVEREXTEND_START) return 0;
+  const t=Math.floor((share-CONFIG.OVEREXTEND_START)*CONFIG.OVEREXTEND_SCALE*MODS.overtax);
+  return t>CONFIG.OVEREXTEND_MAX?CONFIG.OVEREXTEND_MAX:t;
+}
 const sameTeam=(a,b)=> a>=0 && b>=0 && players[a].team===players[b].team;   // FFA gives each player their own team
 function supplyPenalty(cx,cy,pIdx){
   let bd2=Infinity;
@@ -174,7 +192,7 @@ function expandToward(pIdx, tx, ty, budgetCap){
     const c=idx%COLS, r=(idx/COLS)|0;
     const enemy = owner[idx]>=0;
     const wallHp = enemy ? wall[idx] : 0;                  // wall stores remaining durability
-    let cost = (enemy ? enemyCost(idx) : 1) + supplyPenalty(c,r,pIdx) + wallHp;
+    let cost = (enemy ? enemyCost(idx) : 1) + supplyPenalty(c,r,pIdx) + wallHp + overtax(pIdx);
     if(budget<cost){
       // Not enough to take a walled cell outright: the leftover chips the wall instead (cracks show).
       if(wallHp>0 && budget>=1){ const dmg=Math.min(Math.floor(budget),wallHp); wall[idx]-=dmg; budget-=dmg; spent+=dmg;
@@ -506,7 +524,7 @@ function newRound(){
   scatterNeutralNodes();
   rebuildCellNode();
   scatterObstacles();
-  obstacleTimer=CONFIG.OBSTACLE_INTERVAL;
+  obstacleTimer=CONFIG.OBSTACLE_FIRST;   // hold the first drifting barrier back for a calmer opening
   assignSpawns();
   computeColors();
   const h=players[MY]._spawn;
@@ -521,7 +539,10 @@ function newRound(){
   if(NETX.on && NETX.role==="host" && NET.connected()) hostSendInit();
 }
 
-const botDelay=()=>{ const d=botCfg.delay; return (d[0]+Math.random()*(d[1]-d[0]))*1000; };
+const botDelay=()=>{ const d=botCfg.delay; let ms=(d[0]+Math.random()*(d[1]-d[0]))*1000;
+  // Ease bots in over the opening so the first seconds are readable, not a scramble.
+  if(simTime<CONFIG.OPENING_CALM){ const e=1-simTime/CONFIG.OPENING_CALM; ms*=1+(CONFIG.OPENING_BOT_SLOW-1)*e; }
+  return ms; };
 // Drop a farm or outpost on one of the bot's own cells. farm -> quiet interior; outpost -> a frontier
 // cell touching non-owned ground, so it projects supply and pressure toward enemies.
 function botPlaceBuild(pl, type, frontier){
@@ -637,7 +658,10 @@ function botTurn(pl, now){
   // Nearest non-owned node; harder bots will press an enemy node when one is closest.
   let best=null, bd=Infinity;
   for(const nd of nodes){ if(nd.dead || nd.owner===pl.idx || sameTeam(nd.owner,pl.idx)) continue; const dx=nd.cx-sx,dy=nd.cy-sy,d=dx*dx+dy*dy; if(d<bd){bd=d;best=nd;} }
-  const pct=0.4+skill*0.4;
+  // Occasionally hold off a beat instead of firing every turn — weaker bots hesitate more. Feels
+  // less like a machine gun without dulling a hard bot's edge.
+  if(Math.random() < CONFIG.BOT_HESITATE*(1-skill)){ pl._next=now+botDelay()*0.6; return; }
+  const pct=clamp(0.4+skill*0.4 + rand(-CONFIG.BOT_COMMIT_JITTER,CONFIG.BOT_COMMIT_JITTER), 0.15, 0.95);
   const budget=Math.ceil(pl.influence*pct);
   if(best && budget>=1) expandToward(pl.idx, best.cx, best.cy, budget);
   pl._next = now + botDelay();

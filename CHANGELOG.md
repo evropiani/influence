@@ -4,6 +4,10 @@ All notable changes to **Influence**, newest first. Also published as `changelog
 
 ## 2026-07-04
 
+- **Pacing pass (from player feedback)** — the game is still meant to be hard; these change the *rhythm*, not the challenge:
+  - **Anti-snowball — supply lines stretch**: once you already hold a big share of the map, pushing into fresh land costs a little more per cell, so a lead has to be re-earned instead of steamrolling on its own. It doesn't make the game easier to win — it just curbs runaway blowouts. Eased off in **Domination**, which is a deliberate race to 75%.
+  - **Calmer opening**: bots ease in over the first ~12 seconds and the first drifting barrier is held back, so the board is readable from the start instead of chaos on the very first click.
+  - **Less robotic bots**: opponents now vary how hard they commit and occasionally hesitate for a beat, so they read less like a machine gun and more like players.
 - **Invite codes shortened to 6 characters**: with the optional signaling relay, hosting a friend match now gives a short 6-character code your friend just types in — no more copying long strings back and forth. (The long copy-paste codes still work as a fallback.)
 
 ## 2026-07-03
