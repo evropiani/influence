@@ -2,6 +2,10 @@
 
 All notable changes to **Influence**, newest first. Also published as `changelog.html` on the site, and the latest day's changes appear in the "Latest changes" box on the how-to page.
 
+## 2026-07-04
+
+- **Invite codes shortened to 6 characters**: with the optional signaling relay, hosting a friend match now gives a short 6-character code your friend just types in — no more copying long strings back and forth. (The long copy-paste codes still work as a fallback.)
+
 ## 2026-07-03
 
 - **Play with friends (P2P multiplayer)**: humans and bots in one match — browsers connect directly to each other over WebRTC, no server, no accounts. The host shares an invite code, friends answer with reply codes, and the host runs the match while friends play live: expanding, walls, farms, outposts and bombs all work for everyone. Works in Classic, Battle Royale, King Of The Hill, Domination and The Zone (teams not yet).

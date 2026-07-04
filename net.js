@@ -4,11 +4,12 @@
 // the friend answers with a reply code, and from then on the browsers talk directly.
 // The host is the hub: it can hold several connections (one per friend); guests hold one.
 window.NET=(()=>{
-  // Optional signaling relay (Google Apps Script web app, see signaling.gs). When set, invites
-  // become 6-character codes: the relay stores the offer under the code, the friend fetches it
-  // (which deletes it) and posts the answer back, the host picks that up — then everything is
-  // direct P2P as before. When empty, the manual long-code exchange is used instead.
-  let SIGNAL_URL="";
+  // Optional signaling relay. When set, invites become 6-character codes: the relay stores the
+  // offer under the code, the friend fetches it (which deletes it) and posts the answer back, the
+  // host picks that up — then everything is direct P2P. Empty -> manual long-code exchange.
+  // The endpoint is base64-obfuscated here so it isn't a plaintext string in the source; note this
+  // is obscurity only — a browser that calls it still reveals it in the network tab.
+  let SIGNAL_URL=(s=>{try{return atob(s)}catch(e){return ""}})("aHR0cHM6Ly9zY3JpcHQuZ29vZ2xlLmNvbS9tYWNyb3Mvcy9BS2Z5Y2J4cmhwV3piemVIc1NoVXpCVmttQlB4cVdWcWJkd1hNNlcxcW9VVVhSY3o0SjBzcmVpNW5nWjFiVE0wVGRwa0sySGovZXhlYw==");
   const CODE_ALPHABET="ABCDEFGHJKMNPQRSTUVWXYZ23456789";
   const gen6=()=>{ let c=""; const a=new Uint32Array(6); crypto.getRandomValues(a); for(let i=0;i<6;i++) c+=CODE_ALPHABET[a[i]%CODE_ALPHABET.length]; return c; };
   async function sigPut(code,kind,sdp){
