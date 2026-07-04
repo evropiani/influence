@@ -73,7 +73,9 @@ You have **influence**. It buys land — one point per cell. Land and captured *
 
 ## 👥 Play with a friend (P2P)
 
-Two humans in one match, plus bots — the browsers connect **directly to each other**, no server, no accounts. Host presses **Host** and sends the invite code to a friend; the friend presses **Join**, pastes it, and sends the reply code back; host pastes that and starts the game. Full flow on the [How to Play page](https://evropiani.github.io/influence/).
+Up to **4 humans** in one match (host + 3 friends), plus bots — or **zero bots** for a pure friend fight. The browsers connect **directly to each other**, no server, no accounts. Host presses **Host** and sends the invite code to a friend; the friend presses **Join**, pastes it, and sends the reply code back; host pastes that — then **Add Player** for the next one — and starts the game. Full flow on the [How to Play page](https://evropiani.github.io/influence/).
+
+**Shorter codes (optional):** the default invite/reply codes are long strings. Deploy the tiny relay in `signaling.gs` (a Google Apps Script web app backed by a Sheet) and paste its URL into `SIGNAL_URL` in `net.js`, and invites become **6-character codes** the friend just types in. The relay only holds a connection handshake for a few minutes and deletes each code the moment it is used — no game or personal data.
 
 ## 🤖 Modes & bots
 
@@ -95,6 +97,7 @@ Two humans in one match, plus bots — the browsers connect **directly to each o
 ├── influence.js    # game logic
 ├── sound.js        # procedural music & sound effects (Web Audio)
 ├── net.js          # peer-to-peer transport for friend matches (WebRTC)
+├── signaling.gs    # optional Google Apps Script relay for 6-character invite codes
 ├── changelog.html  # the changelog as a page on the site
 ├── imprint.html    # legal notice / imprint
 ├── screenshots/    # README & tutorial images

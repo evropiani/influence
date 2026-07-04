@@ -680,7 +680,7 @@ function step(dt){
     if(!t0||!t1){ endRound(topTeamPlayer(t0?0:1)); return; }
   }
   const aliveP=players.filter(p=>p.alive);
-  if(aliveP.length<=1){ endRound(aliveP[0]||null); return; }
+  if(players.length>1 && aliveP.length<=1){ endRound(aliveP[0]||null); return; }
   if(gameMode==="dom"){ const top=topPlayer(); if(top.alive && top.cells>=N*DOM_WIN){ endRound(top); return; } }
   if(gameMode==="hill" && hillC){
     const cnt={}; let best=-1, bestN=0;
@@ -1102,10 +1102,10 @@ function buildSetup(){
 
   const op=document.getElementById("opps"); op.innerHTML="";
   const num=document.createElement("input"); num.type="number"; num.id="oppIn"; num.className="numin";
-  num.min="1"; num.max="99"; num.step="1"; num.value=String(setupSel.opponents);
+  num.min="0"; num.max="99"; num.step="1"; num.value=String(setupSel.opponents);
   num.disabled = setupSel.mode==="team2"||setupSel.mode==="team3";   // team sizes are fixed
-  num.addEventListener("input",()=>{ let v=parseInt(num.value,10); if(isNaN(v))return; v=Math.max(1,Math.min(99,v)); setupSel.opponents=v; });
-  num.addEventListener("blur",()=>{ let v=parseInt(num.value,10); if(isNaN(v))v=1; v=Math.max(1,Math.min(99,v)); setupSel.opponents=v; num.value=String(v); });
+  num.addEventListener("input",()=>{ let v=parseInt(num.value,10); if(isNaN(v))return; v=Math.max(0,Math.min(99,v)); setupSel.opponents=v; });
+  num.addEventListener("blur",()=>{ let v=parseInt(num.value,10); if(isNaN(v))v=3; v=Math.max(0,Math.min(99,v)); setupSel.opponents=v; num.value=String(v); });
   op.appendChild(num);
 
   const df=document.getElementById("diff"); df.innerHTML="";
@@ -1138,16 +1138,26 @@ function startFromSetup(){
   const mkP=(idx,name,tag,rgb,isHuman,team)=>({idx, name, tag, rgb, isHuman, team,
     influence:0, alive:true, cells:0, nodeCount:0, farmCount:0, hasBase:false, baseIdx:-1, _next:0, _spawn:null, _spawnSet:false, _bombCd:0, _hill:0});
   players=[];
-  const mp=NET.connected() && NET.role()==="host";
-  if(mp && gameMode==="team"){ gameMode="timed"; flash("Teams aren't available with a friend yet"); }
+  const mp=NET.connected() && NET.role()==="host" && NETX.guests.size>0;
+  if(mp && gameMode==="team"){ gameMode="timed"; flash("Teams aren't available with friends yet"); }
   NETX.on=mp; NETX.role=mp?"host":null; MY=0;
   if(mp){
-    const gm=NETX.guestMeta||{name:"Friend",tag:"",rgb:[78,125,153]};
-    const opp=Math.max(0,Math.min(97,(setupSel.opponents|0)||0));
-    const botDefs=makeBotColors(Math.max(opp,1), usedPreset);
+    // force distinct colours: if a friend picked (nearly) the same colour as anyone before them, reassign
+    const d2=(a,b)=>(a[0]-b[0])**2+(a[1]-b[1])**2+(a[2]-b[2])**2;
+    const taken=[humanRgb];
+    const dedupe=(rgb)=>{
+      if(taken.every(t=>d2(t,rgb)>=3600)){ taken.push(rgb); return rgb; }
+      let best=PALETTE[0].rgb, bd=-1;
+      for(const pal of PALETTE){ const dm=Math.min(...taken.map(t=>d2(t,pal.rgb))); if(dm>bd){ bd=dm; best=pal.rgb; } }
+      taken.push(best); return best;
+    };
+    const opp=Math.max(0,Math.min(96,(setupSel.opponents|0)||0));
     players.push(mkP(0,(nameIn.value.trim()||"Player"),(tagIn.value||""),humanRgb,true,0));
-    players.push(mkP(1,gm.name,gm.tag,gm.rgb,true,1));
-    for(let i=0;i<opp;i++){ const d=botDefs[i%botDefs.length]; players.push(mkP(2+i,d.name+(i>=botDefs.length?" "+(i+1):""),"",d.rgb,false,2+i)); }
+    NETX.pmap={};
+    let idx=1;
+    for(const [pid,gm] of NETX.guests){ NETX.pmap[pid]=idx; players.push(mkP(idx,gm.name,gm.tag,dedupe(gm.rgb),true,idx)); idx++; }
+    const botDefs=makeBotColors(Math.max(opp,1), usedPreset);
+    for(let i=0;i<opp;i++){ const d=botDefs[i%botDefs.length]; players.push(mkP(idx,d.name+(i>=botDefs.length?" "+(i+1):""),"",d.rgb,false,idx)); idx++; }
   } else if(gameMode==="team"){
     // Teammates share one colour; the enemy team gets the palette colour furthest from it.
     let eRgb=PALETTE[0].rgb, bd=-1;
@@ -1156,7 +1166,7 @@ function startFromSetup(){
     for(let i=1;i<teamSize;i++) players.push(mkP(i,"Ally "+i,"",humanRgb,false,0));
     for(let i=0;i<teamSize;i++) players.push(mkP(teamSize+i,"Enemy "+(i+1),"",eRgb,false,1));
   } else {
-    const opp=Math.max(1,Math.min(99,setupSel.opponents||1));
+    const opp=Math.max(0,Math.min(99, setupSel.opponents==null?3:(setupSel.opponents|0)));
     const botDefs=makeBotColors(opp, usedPreset);
     players.push(mkP(0,(nameIn.value.trim()||"Player"),(tagIn.value||""),humanRgb,true,0));
     for(let i=1;i<=opp;i++){ const d=botDefs[i-1]; players.push(mkP(i,d.name,"",d.rgb,false,i)); }
@@ -1216,7 +1226,7 @@ oBtn.addEventListener("click",()=>{
 
 // ================= Multiplayer (peer-to-peer, host-authoritative) ===============================
 // The host's browser runs the whole simulation; the guest sends inputs and renders synced state.
-const NETX={ on:false, role:null, guestMeta:null, acc:0, nodeLen:-1, centered:false,
+const NETX={ on:false, role:null, guests:new Map(), pmap:{}, acc:0, nodeLen:-1, centered:false,
   so:new Int16Array(N), sw:new Uint8Array(N), sb:new Uint8Array(N) };
 function netActive(){ return NETX.on; }
 const netGuest=()=>NETX.on && NETX.role==="guest";
@@ -1228,10 +1238,11 @@ function netAction(kind,payload){                       // guest inputs are forw
 }
 function netBoom(cx,cy){ if(NETX.on && NETX.role==="host") NET.send({t:"boom",cx,cy}); }
 function hostSendInit(){
-  NET.send({t:"init", mode:gameMode,
+  const base={mode:gameMode,
     players:players.map(p=>({name:p.name,tag:p.tag,rgb:p.rgb,team:p.team})),
     hill:hillC?{cx:hillC.cx,cy:hillC.cy,r:hillC.r}:null,
-    nodes:nodes.map(n=>[n.cx,n.cy,n.owner,n.base?1:0,n.dead?1:0])});
+    nodes:nodes.map(n=>[n.cx,n.cy,n.owner,n.base?1:0,n.dead?1:0])};
+  for(const [pid,idx] of Object.entries(NETX.pmap)) NET.sendTo(+pid, {t:"init", myIdx:idx, ...base});
   NETX.so.fill(-1); NETX.sw.fill(0); NETX.sb.fill(0); NETX.nodeLen=nodes.length; NETX.acc=1;
 }
 function hostTick(dt){
@@ -1252,31 +1263,35 @@ function hostTick(dt){
     bl:builds.filter(b=>b.alive).map(b=>[b.cx,b.cy,b.type==="farm"?0:1,b.owner]),
     tl:Math.round(timeLeft*10)/10, sl:Math.round(spawnLeft*10)/10, hc:hillCtrl,
     zn:gameMode==="zone"?{s:zone.state,ph:zone.phase,tm:Math.round((zone.timer||0)*10)/10,c:zone.cur,n:zone.next}:null,
-    sp:phase==="spawn"?players.map(p=>p._spawn?[p._spawn.cx,p._spawn.cy,p._spawnSet?1:0]:null):null });
+    sp:players.map(p=>p._spawn?[p._spawn.cx,p._spawn.cy,p._spawnSet?1:0]:null) });
 }
-function hostOnMsg(m){
+function hostOnMsg(m,pid){
+  if(m.t==="hi"){
+    NETX.guests.set(pid,{name:String(m.name||"Friend").slice(0,14), tag:String(m.tag||"").slice(0,3),
+                         rgb:Array.isArray(m.rgb)?m.rgb.slice(0,3).map(v=>Math.max(0,Math.min(255,+v||0))):[78,125,153]});
+    mpStatus(NETX.guests.size+" friend"+(NETX.guests.size>1?"s":"")+" connected ("+[...NETX.guests.values()].map(g=>g.name).join(", ")+") — press Start when ready");
+    return;
+  }
+  const pi=NETX.pmap[pid]; if(pi===undefined) return;
   switch(m.t){
-    case "hi": NETX.guestMeta={name:String(m.name||"Friend").slice(0,14), tag:String(m.tag||"").slice(0,3),
-                               rgb:Array.isArray(m.rgb)?m.rgb.slice(0,3).map(v=>Math.max(0,Math.min(255,+v||0))):[78,125,153]};
-               mpStatus("Friend connected: "+NETX.guestMeta.name+" — press Start when ready"); break;
-    case "spawn": { const ok=trySetSpawn(m.cx|0,m.cy|0,1); NET.send(ok?{t:"spok"}:{t:"flash",m:"That spot is blocked — pick another"}); break; }
-    case "ex": { const g=players[1]; if(!g||!g.alive||phase!=="play") break;
+    case "spawn": { const ok=trySetSpawn(m.cx|0,m.cy|0,pi); NET.sendTo(pid, ok?{t:"spok"}:{t:"flash",m:"That spot is blocked — pick another"}); break; }
+    case "ex": { const g=players[pi]; if(!g||!g.alive||phase!=="play") break;
                  const pct=Math.max(5,Math.min(100,+m.pct||50));
                  const budget=Math.ceil(g.influence*pct/100);
-                 if(budget>=1) expandToward(1,m.cx|0,m.cy|0,budget); break; }
-    case "wall": paintWall(m.cx|0,m.cy|0,1); break;
-    case "bld": if(m.k==="farm"||m.k==="outpost") placeBuild(m.cx|0,m.cy|0,m.k,1); break;
-    case "bomb": tryBombard(m.cx|0,m.cy|0,1); break;
-    case "base": { const ni=m.ni|0; if(nodes[ni] && nodes[ni].owner===1) makeBase(ni,1); break; }
+                 if(budget>=1) expandToward(pi,m.cx|0,m.cy|0,budget); break; }
+    case "wall": paintWall(m.cx|0,m.cy|0,pi); break;
+    case "bld": if(m.k==="farm"||m.k==="outpost") placeBuild(m.cx|0,m.cy|0,m.k,pi); break;
+    case "bomb": tryBombard(m.cx|0,m.cy|0,pi); break;
+    case "base": { const ni=m.ni|0; if(nodes[ni] && nodes[ni].owner===pi) makeBase(ni,pi); break; }
   }
 }
 function applyNodes(arr){ nodes=arr.map(a=>({cx:a[0],cy:a[1],owner:a[2],base:!!a[3],dead:!!a[4]})); rebuildCellNode(); }
 function guestInit(m){
   demo=false; SND.music(false);
-  MY=1; NETX.on=true; NETX.role="guest"; NETX.centered=false;
+  MY=Math.max(1, m.myIdx|0); NETX.on=true; NETX.role="guest"; NETX.centered=false;
   gameMode=m.mode; refreshMods();
   clearGrid();
-  players=m.players.map((pm,i)=>({idx:i, name:pm.name, tag:pm.tag||"", rgb:pm.rgb, isHuman:i===1, team:pm.team??i,
+  players=m.players.map((pm,i)=>({idx:i, name:pm.name, tag:pm.tag||"", rgb:pm.rgb, isHuman:i===(m.myIdx|0), team:pm.team??i,
     influence:CONFIG.START_INFLUENCE, alive:true, cells:0, nodeCount:0, farmCount:0, hasBase:false, baseIdx:-1,
     _next:0, _spawn:null, _spawnSet:false, _hill:0, _bombCd:0}));
   hillC=m.hill||null; hillCells=[]; hillCtrl=-1; hillMask.fill(0);
@@ -1331,7 +1346,7 @@ function guestOnMsg(m){
   }
 }
 // connection UI
-const mpHostB=document.getElementById("mpHost"), mpJoinB=document.getElementById("mpJoin"),
+const mpHostB=document.getElementById("mpHost"), mpJoinB=document.getElementById("mpJoin"), mpAddB=document.getElementById("mpAdd"),
       mpBox=document.getElementById("mpBox"), mpOut=document.getElementById("mpOut"), mpIn=document.getElementById("mpIn"),
       mpOutL=document.getElementById("mpOutL"), mpInL=document.getElementById("mpInL"),
       mpApply=document.getElementById("mpApply"), mpCopy=document.getElementById("mpCopy"),
@@ -1339,45 +1354,77 @@ const mpHostB=document.getElementById("mpHost"), mpJoinB=document.getElementById
 function mpStatus(t){ if(mpStatusEl) mpStatusEl.textContent=t; }
 function myPickedRgb(){ return setupSel.custom!=null ? hexToRgb(setupSel.custom) : PALETTE[setupSel.color].rgb; }
 if(mpHostB){
-  NET.onMsg(m=>{ try{ NET.role()==="host" ? hostOnMsg(m) : guestOnMsg(m); }catch(e){} });
-  NET.onOpen(()=>{
+  NET.onMsg((m,pid)=>{ try{ NET.role()==="host" ? hostOnMsg(m,pid) : guestOnMsg(m); }catch(e){} });
+  NET.onOpen((pid)=>{
     if(NET.role()==="guest"){
       NET.send({t:"hi", name:(nameIn.value.trim()||"Friend"), tag:tagIn.value||"", rgb:myPickedRgb()});
       mpStatus("Connected! Waiting for the host to start…");
       oBtn.disabled=true; oBtn.textContent="Host starts the game";
-    } else mpStatus("Friend connected!");
+    } else {
+      mpStatus("Friend connected!");
+      mpIn.value=""; mpOut.value="";
+      mpOutL.textContent="Friend connected. Add another with \"Add Player\" below.";
+      mpInL.textContent="";
+      mpAddB.style.display="";
+    }
   });
-  NET.onClose(()=>{
+  NET.onClose((pid)=>{
+    if(NET.role()==="host"){
+      const gm=NETX.guests.get(pid);
+      NETX.guests.delete(pid);
+      const pi=NETX.pmap[pid]; delete NETX.pmap[pid];
+      if(gm) flash((gm.name||"A friend")+" disconnected");
+      mpStatus(NETX.guests.size ? NETX.guests.size+" friend"+(NETX.guests.size>1?"s":"")+" connected" : "All friends disconnected.");
+      if(NETX.on && Object.keys(NETX.pmap).length===0 && !NET.connected()){ NETX.on=false; }
+      return;
+    }
     if(!NETX.on && NET.role()==null) return;
     mpStatus("Connection lost.");
     flash("Connection lost");
     const wasGuest=netGuest();
-    NETX.on=false; NETX.guestMeta=null; NET.close();
+    NETX.on=false; NET.close();
     oBtn.disabled=false; oBtn.textContent = phase==="over" ? (oSetup.style.display!=="none"?"Start":"Play again") : oBtn.textContent;
     if(wasGuest && phase!=="over"){ running=false; phase="over"; MY=0; startDemo(); showSetup(); }
   });
-  mpHostB.addEventListener("click", async ()=>{
-    mpBox.style.display=""; mpHostB.classList.add("sel"); mpJoinB.classList.remove("sel");
-    mpOutL.textContent="1 · Send this invite code to your friend:";
-    mpInL.textContent="2 · Paste their reply code here, then Connect:";
-    mpOut.value="Generating…"; mpStatus("");
-    try{ mpOut.value=await NET.host(); mpStatus("Waiting for your friend's reply code…"); }
-    catch(e){ mpOut.value=""; mpStatus("Could not create an invite ("+e.message+")"); }
-  });
+  const outRow=mpOut.closest(".mprow"), inRow=mpIn.closest(".mprow");
+  const showRows=(o,i)=>{ outRow.style.display=o?"":"none"; mpOutL.style.display=o?"":"none"; inRow.style.display=i?"":"none"; mpInL.style.display=i?"":"none"; };
+  const SHORT=()=>NET.shortCodes();
+  async function newInvite(){
+    if(NET.role()==="host" && NETX.guests.size>=3){ mpStatus("Maximum of 3 friends per match."); return; }
+    mpBox.style.display=""; mpHostB.classList.add("sel"); mpJoinB.classList.remove("sel"); mpAddB.style.display="none";
+    mpOut.classList.toggle("code6", SHORT()); mpIn.value="";
+    if(SHORT()){
+      showRows(true,false);
+      mpOutL.textContent="Give your friend this code:"; mpOut.value="…"; mpStatus("");
+      try{ mpOut.value=await NET.hostCode(()=>mpStatus("Friend found — connecting…"), e=>mpStatus("Invite expired or failed ("+(e.message||e)+")")); mpStatus("Waiting for your friend to enter it…"); }
+      catch(e){ mpOut.value=""; showRows(true,true); mpStatus("Relay unreachable — using long codes. Retry."); NET.setSignal(""); }
+    } else {
+      showRows(true,true);
+      mpOutL.textContent="1 · Send this invite code to your friend:";
+      mpInL.textContent="2 · Paste their reply code here, then Connect:";
+      mpOut.value="Generating…"; mpStatus("");
+      try{ mpOut.value=await NET.host(); mpStatus("Waiting for your friend's reply code…"); }
+      catch(e){ mpOut.value=""; mpStatus("Could not create an invite ("+(e.message||e)+")"); }
+    }
+  }
+  mpHostB.addEventListener("click", newInvite);
+  mpAddB.addEventListener("click", newInvite);
   mpJoinB.addEventListener("click", ()=>{
-    mpBox.style.display=""; mpJoinB.classList.add("sel"); mpHostB.classList.remove("sel");
-    mpOutL.textContent="2 · Send this reply code back to the host:";
-    mpInL.textContent="1 · Paste the host's invite code here, then Connect:";
-    mpOut.value=""; mpStatus("");
+    mpBox.style.display=""; mpJoinB.classList.add("sel"); mpHostB.classList.remove("sel"); mpAddB.style.display="none";
+    mpOut.classList.remove("code6"); mpOut.value=""; mpIn.value=""; mpStatus("");
+    if(SHORT()){ showRows(false,true); mpInL.textContent="Enter the host's 6-character code, then Connect:"; mpIn.placeholder="ABC123"; }
+    else { showRows(true,true); mpOutL.textContent="2 · Send this reply code back to the host:"; mpInL.textContent="1 · Paste the host's invite code here, then Connect:"; mpIn.placeholder="paste code here"; }
   });
   mpApply.addEventListener("click", async ()=>{
-    const code=mpIn.value.trim(); if(!code){ mpStatus("Paste a code first."); return; }
+    const code=mpIn.value.trim(); if(!code){ mpStatus("Enter a code first."); return; }
     try{
       if(NET.role()==="host"){ mpStatus("Connecting…"); await NET.acceptAnswer(code); }
+      else if(SHORT()){ mpStatus("Looking up code…"); await NET.joinCode(code); mpStatus("Found! Connecting…"); }
       else { mpStatus("Building reply…"); mpOut.value=await NET.join(code); mpStatus("Reply code ready — send it back, then wait."); }
     }catch(e){ mpStatus("That code didn't work ("+(e.message||e)+")"); }
   });
   mpCopy.addEventListener("click", ()=>{ mpOut.select(); try{ navigator.clipboard.writeText(mpOut.value); mpStatus("Copied!"); }catch(e){ document.execCommand("copy"); } });
+  mpIn.addEventListener("input", ()=>{ if(SHORT() && NET.role()!=="host" && mpIn.placeholder==="ABC123"){ const v=mpIn.value.toUpperCase().replace(/[^A-Z0-9]/g,"").slice(0,6); if(v!==mpIn.value) mpIn.value=v; } });
 }
 
 function frame(now){
