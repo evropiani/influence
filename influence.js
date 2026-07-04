@@ -2,16 +2,21 @@
 
 const CONFIG = {
   COLS:440, ROWS:300, CELL:14,
-  NODE_COUNT:200, NODE_SPACING:9,
+  // Far fewer, more spread-out nodes (was 200): each one is a real objective you can track and
+  // defend, instead of 80 interchangeable dots you stop caring about (from player feedback).
+  NODE_COUNT:64, NODE_SPACING:16,
   START_R:4,
   ROUND_SECONDS:300,
   SPAWN_SECONDS:10,
   START_INFLUENCE:120,
-  INCOME_PER_NODE:2.2,
+  INCOME_PER_NODE:3.2,
   INCOME_PER_CELL:0.01,
-  TRICKLE:1.5,
+  TRICKLE:2.0,
   CAP_BASE:100, CAP_PER_NODE:40,
   ENEMY_BASE:2, DEF_MAX:8, DEF_RATE:0.6,
+  // Cracking an enemy-held node costs a hefty surcharge on top of its defense, so you can't just
+  // spike one line of cells to the centre and flip it — steals take real commitment (player feedback).
+  NODE_CAPTURE_COST:45,
   CAPTURE_NEUTRAL:22, CAPTURE_ENEMY:55,
   SUPPLY_RANGE:22, SUPPLY_FALLOFF:6, SUPPLY_MAX:12,
   ENTRENCH_SHADE:0.38,
@@ -26,7 +31,7 @@ const CONFIG = {
   ZONE_PHASES:5, ZONE_CALM:85, ZONE_WARN:20, ZONE_SHRINK:15, ZONE_FACTOR:0.62, ZONE_FINAL:60,
   HILL_R:15, HILL_HOLD:60, HILL_CONTROL:0.5,
   DEFAULT_PCT:50,
-  ZOOM_MIN:0.28, ZOOM_MAX:1.7, ZOOM_START:0.7, PAN_KEY_SPEED:760,
+  ZOOM_MIN:0.18, ZOOM_MAX:1.7, ZOOM_START:0.7, PAN_KEY_SPEED:760,   // min low enough to fit the whole board on a big screen
   BOT_SKILL:0.6,
   // Anti-snowball: once you already hold a big share of the map, pushing into new land costs a
   // little more per cell (supply lines stretch). A lead has to be re-earned rather than rolling
@@ -42,9 +47,11 @@ const CONFIG = {
 // Bot behaviour profiles per difficulty. skill drives budget/aggression; build enables farms/outposts;
 // delay is the seconds between a bot's moves (lower = faster/harder).
 const DIFFS = {
-  easy:   { skill:0.32, build:false, farmChance:0,    outChance:0,    maxFarms:0, delay:[1.8,2.8] },
-  normal: { skill:0.60, build:true,  farmChance:0.10, outChance:0.05, maxFarms:2, delay:[1.2,2.0] },
-  hard:   { skill:0.86, build:true,  farmChance:0.24, outChance:0.15, maxFarms:4, delay:[0.8,1.4] },
+  // Slower base cadence than before (from feedback: play felt too fast and bots reacted instantly).
+  // Skill/commit are unchanged, so hard bots are still hard — they just act more deliberately.
+  easy:   { skill:0.32, build:false, farmChance:0,    outChance:0,    maxFarms:0, delay:[2.2,3.4] },
+  normal: { skill:0.60, build:true,  farmChance:0.10, outChance:0.05, maxFarms:2, delay:[1.7,2.7] },
+  hard:   { skill:0.86, build:true,  farmChance:0.24, outChance:0.15, maxFarms:4, delay:[1.1,1.9] },
 };
 let botCfg = DIFFS.normal;
 
@@ -192,7 +199,8 @@ function expandToward(pIdx, tx, ty, budgetCap){
     const c=idx%COLS, r=(idx/COLS)|0;
     const enemy = owner[idx]>=0;
     const wallHp = enemy ? wall[idx] : 0;                  // wall stores remaining durability
-    let cost = (enemy ? enemyCost(idx) : 1) + supplyPenalty(c,r,pIdx) + wallHp + overtax(pIdx);
+    const nodeCore = enemy && cellNode[idx]>=0 ? CONFIG.NODE_CAPTURE_COST : 0;   // stealing a held node is costly
+    let cost = (enemy ? enemyCost(idx) : 1) + supplyPenalty(c,r,pIdx) + wallHp + overtax(pIdx) + nodeCore;
     if(budget<cost){
       // Not enough to take a walled cell outright: the leftover chips the wall instead (cracks show).
       if(wallHp>0 && budget>=1){ const dmg=Math.min(Math.floor(budget),wallHp); wall[idx]-=dmg; budget-=dmg; spent+=dmg;
@@ -515,6 +523,7 @@ function newRound(){
   clearGrid();
   setBuildMode(null); setBuildEnabled(false);
   players.forEach(pl=>{ pl.cells=0; pl.nodeCount=0; pl.farmCount=0; pl.alive=true; pl.influence=CONFIG.START_INFLUENCE; pl._next=0; pl.hasBase=false; pl.baseIdx=-1; pl._spawnSet=false; pl._hill=0; pl._bombCd=0; });
+  tips={};
   hillC=null; hillCells=[]; hillCtrl=-1;
   if(gameMode==="hill"){ hillC={cx:(COLS/2)|0, cy:(ROWS/2)|0, r:CONFIG.HILL_R}; buildHillMask(); }
   if(gameMode==="zone"){
@@ -689,6 +698,8 @@ function step(dt){
 
   for(const pl of players){ if(pl.alive && pl.cells<=0) pl.alive=false; }
 
+  maybeTip();
+
   const sp=CONFIG.PAN_KEY_SPEED*dt/cam.zoom;
   if(keys.has("w")||keys.has("arrowup")) cam.y-=sp;
   if(keys.has("s")||keys.has("arrowdown")) cam.y+=sp;
@@ -726,9 +737,10 @@ const leadingTeam=()=>teamCells(0)>=teamCells(1)?0:1;
 function topTeamPlayer(t){ let best=null; for(const p of players) if(p.team===t&&(!best||p.cells>best.cells)) best=p; return best||players[0]; }
 
 function clampCam(){
-  const vw=VIEW_W/cam.zoom, vh=VIEW_H/cam.zoom, m=240;
-  cam.x = vw>=WORLD_W+2*m ? (WORLD_W-vw)/2 : clamp(cam.x,-m,WORLD_W-vw+m);
-  cam.y = vh>=WORLD_H+2*m ? (WORLD_H-vh)/2 : clamp(cam.y,-m,WORLD_H-vh+m);
+  const vw=VIEW_W/cam.zoom, vh=VIEW_H/cam.zoom, m=140;
+  // When the board fits on screen, centre it instead of leaving it scrollable.
+  cam.x = vw>=WORLD_W ? (WORLD_W-vw)/2 : clamp(cam.x,-m,WORLD_W-vw+m);
+  cam.y = vh>=WORLD_H ? (WORLD_H-vh)/2 : clamp(cam.y,-m,WORLD_H-vh+m);
 }
 
 const pointers=new Map(); let pinchPrev=null;
@@ -820,6 +832,7 @@ addEventListener("keydown", e=>{
   if(t && t.tagName==="INPUT" && t.type!=="range") return;   // don't hijack typing in name/tag/number fields
   const k=e.key.toLowerCase();
   if(phase==="play" && !e.repeat && HOTKEYS[k]){ const m=HOTKEYS[k]; setBuildMode(buildMode===m?null:m); return; }
+  if(phase==="play" && !e.repeat && (k==="q"||k==="e")){ stepCommit(k==="e"?1:-1); return; }   // step commit without the slider
   if(k==="m" && !e.repeat){ SND.toggle(); updateSndBtn(); return; }
   keys.add(k);
 });
@@ -832,6 +845,7 @@ mm.addEventListener("pointerdown", e=>{ e.preventDefault(); mm.setPointerCapture
 mm.addEventListener("pointermove", e=>{ if(e.buttons||e.pressure>0) mmJump(e); });
 
 function render(){
+  document.body.classList.toggle("menu", phase==="over");   // blurs the demo field + hides the top HUD on the menu
   ctx.fillStyle=BG; ctx.fillRect(0,0,VIEW_W,VIEW_H);
 
   const cw=CELL*cam.zoom;
@@ -919,10 +933,18 @@ function render(){
       ctx.beginPath(); ctx.arc(sx,sy,R,0,Math.PI*2); ctx.stroke();
       ctx.fillStyle="rgba(231,233,238,0.22)"; ctx.beginPath(); ctx.arc(sx,sy,R*0.42,0,Math.PI*2); ctx.fill();
     } else if(nd.base){
-      starPath(sx,sy,R*1.7,R*0.72,5,-Math.PI/2);
+      // Bases read very differently from ordinary nodes now: a coloured halo + a big star, and your
+      // own base gets a thicker pulsing ring so you can always find it (player feedback: icons too alike).
+      const isMine = nd.owner===MY;
+      ctx.fillStyle=rgbStr(players[nd.owner].rgb,0.14);
+      ctx.beginPath(); ctx.arc(sx,sy,R*2.4,0,Math.PI*2); ctx.fill();
+      const pulse=(isMine&&!reduceMotion)?(0.55+0.45*Math.sin(tnow*0.005)):1;
+      ctx.strokeStyle=rgbStr(players[nd.owner].rgb, (isMine?0.95:0.6)*pulse); ctx.lineWidth=isMine?3:2;
+      ctx.beginPath(); ctx.arc(sx,sy,R*2.1,0,Math.PI*2); ctx.stroke();
+      starPath(sx,sy,R*1.9,R*0.8,5,-Math.PI/2);
       ctx.fillStyle=rgbStr(players[nd.owner].rgb); ctx.fill();
       ctx.strokeStyle="rgba(255,255,255,0.95)"; ctx.lineWidth=2.5; ctx.stroke();
-      ctx.fillStyle="rgba(255,255,255,0.92)"; ctx.beginPath(); ctx.arc(sx,sy,R*0.3,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle="rgba(255,255,255,0.95)"; ctx.beginPath(); ctx.arc(sx,sy,R*0.32,0,Math.PI*2); ctx.fill();
     } else {
       ctx.fillStyle=rgbStr(players[nd.owner].rgb); ctx.beginPath(); ctx.arc(sx,sy,R,0,Math.PI*2); ctx.fill();
       ctx.strokeStyle="rgba(255,255,255,0.85)"; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(sx,sy,R,0,Math.PI*2); ctx.stroke();
@@ -990,6 +1012,18 @@ function render(){
       ctx.lineWidth=1.5;
       ctx.strokeRect((cx*CELL-cam.x)*cam.zoom,(cy*CELL-cam.y)*cam.zoom,cw,cw);
     }
+  }
+
+  // Big, unmissable countdown while you're placing your spawn (player feedback: it was too subtle).
+  if(phase==="spawn"){
+    const n=Math.max(0,Math.ceil(spawnLeft));
+    ctx.save();
+    ctx.textAlign="center"; ctx.textBaseline="middle";
+    ctx.font="800 "+Math.round(Math.min(VIEW_W,VIEW_H)*0.30)+"px ui-monospace,'SF Mono',Menlo,monospace";
+    ctx.fillStyle="rgba(231,233,238,0.16)"; ctx.fillText(String(n), VIEW_W/2, VIEW_H*0.40);
+    ctx.font="700 "+Math.round(Math.min(VIEW_W,VIEW_H)*0.028)+"px ui-monospace,'SF Mono',Menlo,monospace";
+    ctx.fillStyle="rgba(207,122,63,0.85)"; ctx.fillText("GET READY", VIEW_W/2, VIEW_H*0.40+Math.min(VIEW_W,VIEW_H)*0.17);
+    ctx.restore();
   }
 
   drawMinimap();
@@ -1101,14 +1135,52 @@ let flashTimer=0; const flashEl=document.getElementById("flash");
 function flash(msg){ if(demo) return;
   flashEl.textContent=msg; flashEl.classList.add("show"); clearTimeout(flashTimer);
   flashTimer=setTimeout(()=>flashEl.classList.remove("show"),1400); }
+// Teaching tips shown once each, held longer than a normal flash so they're readable.
+let tips={};
+function showTip(msg){ if(demo) return;
+  flashEl.textContent=msg; flashEl.classList.add("show"); clearTimeout(flashTimer);
+  flashTimer=setTimeout(()=>flashEl.classList.remove("show"),4600); }
+function maybeTip(){
+  // First time the player can actually use each tool, explain when/why (player feedback: unclear).
+  if(netGuest() || simTime<6) return;
+  const me=players[MY]; if(!me || !me.isHuman || !me.alive) return;
+  if(performance.now()-(tips._last||0) < 6500) return;   // one tip at a time
+  const fire=(k,msg)=>{ tips[k]=1; tips._last=performance.now(); showTip(msg); };
+  if(!tips.out && me.hasBase && me.influence>=CONFIG.OUTPOST_COST)
+    return fire("out","Tip: press 3 to plant an Outpost — it keeps chewing into nearby enemy land and extends how far you can push and bomb.");
+  if(!tips.farm && me.hasBase && me.influence>=CONFIG.FARM_COST)
+    return fire("farm","Tip: press 2 for a Farm on safe ground — steady income that funds everything else. Build them once your front is stable.");
+  if(!tips.bomb && me.influence>=CONFIG.BOMBARD_COST)
+    return fire("bomb","Tip: press 4 to aim a Bomb — it blasts a crater out of enemy territory in range; they can't reclaim it while it burns, but you can pour in.");
+}
 
 const pctEl=document.getElementById("pct"), pctV=document.getElementById("pctV");
 pctEl.addEventListener("input",()=>{ commitPct=+pctEl.value; pctV.textContent=commitPct+"%"; });
+// Keyboard commit control (Q/E) so you don't have to drag the slider mid-fight — snaps to 5 levels.
+const COMMIT_LEVELS=[20,40,60,80,100];
+function stepCommit(dir){
+  let cur=0; for(let i=1;i<COMMIT_LEVELS.length;i++) if(Math.abs(COMMIT_LEVELS[i]-commitPct)<Math.abs(COMMIT_LEVELS[cur]-commitPct)) cur=i;
+  commitPct=COMMIT_LEVELS[clamp(cur+dir,0,COMMIT_LEVELS.length-1)];
+  pctEl.value=commitPct; pctV.textContent=commitPct+"%";
+  flash("Commit "+commitPct+"%");
+}
 
 const overlay=document.getElementById("overlay"), oTitle=document.getElementById("otitle"),
       oSub=document.getElementById("osub"), oSetup=document.getElementById("setup"),
       oStandings=document.getElementById("standings"), oBtn=document.getElementById("obtn"),
-      nameIn=document.getElementById("nameIn"), tagIn=document.getElementById("tagIn");
+      nameIn=document.getElementById("nameIn"), tagIn=document.getElementById("tagIn"),
+      menuBtn=document.getElementById("menuBtn"), menuBtn2=document.getElementById("menuBtn2");
+// Leave any match (mid-game or results) and go back to the main menu (player feedback: there was
+// no way back except reloading the page).
+function quitToMenu(){
+  if(phase==="over" && oSetup.style.display!=="none") return;   // already at the setup menu
+  try{ if(NETX.on) NET.close(); }catch(e){}
+  NETX.on=false; NETX.role=null;
+  running=false; setBuildMode(null); setBuildEnabled(false);
+  phase="over"; startDemo(); showSetup();
+}
+menuBtn.addEventListener("click", quitToMenu);
+menuBtn2.addEventListener("click", quitToMenu);
 tagIn.addEventListener("input",()=>{ tagIn.value=tagIn.value.toUpperCase().replace(/[^A-Z0-9]/g,"").slice(0,3); });
 function buildSetup(){
   const sw=document.getElementById("swatches"); sw.innerHTML="";
@@ -1138,17 +1210,29 @@ function buildSetup(){
     b.onclick=()=>{ setupSel.difficulty=val; [...df.children].forEach(c=>c.classList.remove("sel")); b.classList.add("sel"); };
     df.appendChild(b); });
 
+  // Classic is the clear default; the rest are tucked behind "More modes" so new players aren't
+  // overwhelmed by seven choices before their first game (player feedback).
   const md=document.getElementById("mode"); md.innerHTML="";
-  [["timed","Classic"],["royale","Battle Royale"],["hill","King Of The Hill"],["dom","Domination"],["zone","The Zone"],["team2","2v2"],["team3","3v3"]].forEach(([val,lab])=>{ const b=document.createElement("button");
-    b.className="seg"+(setupSel.mode===val?" sel":""); b.textContent=lab;
-    b.onclick=()=>{ setupSel.mode=val; [...md.children].forEach(c=>c.classList.remove("sel")); b.classList.add("sel");
-      num.disabled = val==="team2"||val==="team3"; };
-    md.appendChild(b); });
+  const clearSel=()=>[...md.querySelectorAll(".modeseg")].forEach(c=>c.classList.remove("sel"));
+  const mkModeBtn=([val,lab])=>{ const b=document.createElement("button");
+    b.className="seg modeseg"+(setupSel.mode===val?" sel":""); b.textContent=lab;
+    b.onclick=()=>{ setupSel.mode=val; clearSel(); b.classList.add("sel"); num.disabled=val==="team2"||val==="team3"; };
+    return b; };
+  [["timed","Classic"],["royale","Battle Royale"]].forEach(m=>md.appendChild(mkModeBtn(m)));
+  const MORE=[["hill","King Of The Hill"],["dom","Domination"],["zone","The Zone"],["team2","2v2"],["team3","3v3"]];
+  const moreOpen=MORE.some(([v])=>v===setupSel.mode);
+  const moreBtn=document.createElement("button"); moreBtn.className="seg moretoggle";
+  moreBtn.textContent=moreOpen?"More modes ▾":"More modes ▸";
+  const moreBox=document.createElement("div"); moreBox.className="morebox"; moreBox.style.display=moreOpen?"":"none";
+  MORE.forEach(m=>moreBox.appendChild(mkModeBtn(m)));
+  moreBtn.onclick=()=>{ const open=moreBox.style.display==="none"; moreBox.style.display=open?"":"none"; moreBtn.textContent=open?"More modes ▾":"More modes ▸"; };
+  md.appendChild(moreBtn); md.appendChild(moreBox);
 }
 function showSetup(){
   oTitle.textContent="Influence";
   oSub.innerHTML="Spend influence to claim land — it goes into cells one-for-one. Pick a spawn, then <b>tap toward where you want to grow</b>. Empty land is cheap; enemy land costs more the longer it's held. Capture <b>nodes</b> for income, guard your <b>base</b>, and spend influence on <b>walls, farms, outposts and bombs</b> from the bottom bar (keys <b>1–4</b>). Most ground when the clock runs out — or last one standing in Battle Royale.<div style=\"margin-top:12px\"><a class=\"howto\" href=\"index.html\">How to play</a></div>";
   oSetup.style.display=""; oStandings.innerHTML=""; oBtn.textContent="Start";
+  menuBtn2.style.display="none";
   overlay.classList.remove("hidden"); buildSetup();
   SND.music(true);
 }
@@ -1241,7 +1325,7 @@ function endRound(winner){
   const top=ranked.slice(0,20);
   oStandings.innerHTML=teamRows+top.map(p=>`<div class="row"><span class="chip" style="background:${rgbStr(p.rgb)}"></span><span class="nm">${escapeHTML(dispName(p))}</span><span class="vv">${Math.round(p.cells/N*100)}%</span></div>`).join("")
     + (ranked.length>20?`<div class="row"><span class="nm" style="opacity:.55">…and ${ranked.length-20} more</span></div>`:"");
-  oBtn.textContent="Play again"; overlay.classList.remove("hidden");
+  oBtn.textContent="Play again"; menuBtn2.style.display=""; overlay.classList.remove("hidden");
 }
 oBtn.addEventListener("click",()=>{
   if(oSetup.style.display!=="none" && oBtn.textContent==="Start") startFromSetup();

@@ -111,3 +111,18 @@
     #minimap{width:104px;height:70px}#hint{display:none}#pct{width:104px}
     #bottombar{gap:12px;font-size:11px}#cellInfo{display:none}
   }
+
+  /* On the main menu: blur/dim the live demo behind the panel and hide the in-game HUD (the top
+     colour percentages + 0:00 timer confused first-time players). */
+  body.menu #game{filter:blur(7px) brightness(.5) saturate(.85);transition:filter .2s}
+  body.menu #topbar{display:none}
+  body.menu #minimap{visibility:hidden}
+  body.menu #menuBtn{display:none}
+
+  /* "More modes" disclosure in the setup screen */
+  .moretoggle{opacity:.85}
+  .morebox{flex-basis:100%;display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-top:4px}
+
+  /* secondary "Main menu" button on the results screen */
+  #menuBtn2{font-family:var(--mono);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);background:transparent;border:1px solid var(--line);border-radius:9px;padding:9px 20px;margin-top:9px;cursor:pointer}
+  #menuBtn2:hover{color:var(--ink);border-color:var(--accent)}

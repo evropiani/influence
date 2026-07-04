@@ -4,10 +4,15 @@ All notable changes to **Influence**, newest first. Also published as `changelog
 
 ## 2026-07-04
 
-- **Pacing pass (from player feedback)** — the game is still meant to be hard; these change the *rhythm*, not the challenge:
-  - **Anti-snowball — supply lines stretch**: once you already hold a big share of the map, pushing into fresh land costs a little more per cell, so a lead has to be re-earned instead of steamrolling on its own. It doesn't make the game easier to win — it just curbs runaway blowouts. Eased off in **Domination**, which is a deliberate race to 75%.
-  - **Calmer opening**: bots ease in over the first ~12 seconds and the first drifting barrier is held back, so the board is readable from the start instead of chaos on the very first click.
-  - **Less robotic bots**: opponents now vary how hard they commit and occasionally hesitate for a beat, so they read less like a machine gun and more like players.
+- **Redesign from a detailed player review** — the game is still meant to be hard; this fixes the *pace* and the *clarity*, not the challenge:
+  - **Far fewer nodes (200 → 64), spread wider**: each one is now a real objective you notice and defend, instead of one of eighty you stop caring about.
+  - **Anti-snowball — supply lines stretch**: once you already dominate the map, pushing into fresh land costs more per cell, so a lead has to be re-earned instead of steamrolling on its own. Eased off in **Domination** (a deliberate race to 75%).
+  - **Stealing a node takes commitment**: cracking a held node now carries a hefty surcharge, so you can't flip it by spiking a single line of cells to its centre — and a node you defend actually holds.
+  - **Slower, more deliberate bots**: opponents ease in over the opening, vary how hard they commit, and occasionally hesitate, so they read like players instead of reacting like machines. (Skill is unchanged — hard bots are still hard.)
+  - **Calmer, readable opening**: the first drifting barrier is held back, and the menu's live demo is now blurred with the confusing score/timer hidden until you're actually in a game.
+  - **Clearer board**: bases have a coloured halo (your own pulses so you can always find it), a big unmissable start countdown, and one-time tips the first time you can afford a farm, outpost or bomb.
+  - **Controls & camera**: `Q`/`E` step the commit level without dragging the slider, a **Menu** button quits back to the main menu at any time, and you can zoom out far enough to fit the whole board on screen.
+  - **Modes**: all kept, but **Classic** is the default and the rest tuck behind a **"More modes"** toggle, so a first game isn't a wall of choices.
 - **Invite codes shortened to 6 characters**: with the optional signaling relay, hosting a friend match now gives a short 6-character code your friend just types in — no more copying long strings back and forth. (The long copy-paste codes still work as a fallback.)
 
 ## 2026-07-03

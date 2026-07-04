@@ -69,7 +69,8 @@ You have **influence**. It buys land — one point per cell. Land and captured *
 | Grow | Click toward target | Tap toward target |
 | Pan / Zoom | Drag / wheel (WASD too) | Drag / pinch |
 | Tools | Keys `1`–`4` or bottom bar | Bottom bar |
-| Sound | `M` or the ♪ button | ♪ button |
+| Commit | Slider, or `Q` / `E` to step | Slider |
+| Sound / Menu | `M` for sound · **☰ Menu** to quit | ♪ button · ☰ Menu |
 | Jump | Click minimap | Tap minimap |
 
 ## 👥 Play with a friend (P2P)
