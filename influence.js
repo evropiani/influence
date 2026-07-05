@@ -1162,7 +1162,7 @@ function stepCommit(dir){
   let cur=0; for(let i=1;i<COMMIT_LEVELS.length;i++) if(Math.abs(COMMIT_LEVELS[i]-commitPct)<Math.abs(COMMIT_LEVELS[cur]-commitPct)) cur=i;
   commitPct=COMMIT_LEVELS[clamp(cur+dir,0,COMMIT_LEVELS.length-1)];
   pctEl.value=commitPct; pctV.textContent=commitPct+"%";
-  flash("Commit "+commitPct+"%");
+  flash("Influence / click: "+commitPct+"%");
 }
 
 const overlay=document.getElementById("overlay"), oTitle=document.getElementById("otitle"),
@@ -1515,14 +1515,24 @@ if(mpHostB){
       catch(e){ mpOut.value=""; mpStatus("Could not create an invite ("+(e.message||e)+")"); }
     }
   }
-  mpHostB.addEventListener("click", newInvite);
-  mpAddB.addEventListener("click", newInvite);
-  mpJoinB.addEventListener("click", ()=>{
+  function openJoin(){
     mpBox.style.display=""; mpJoinB.classList.add("sel"); mpHostB.classList.remove("sel"); mpAddB.style.display="none";
     mpOut.classList.remove("code6"); mpOut.value=""; mpIn.value=""; mpStatus("");
     if(SHORT()){ showRows(false,true); mpInL.textContent="Enter the host's 6-character code, then Connect:"; mpIn.placeholder="ABC123"; }
     else { showRows(true,true); mpOutL.textContent="2 · Send this reply code back to the host:"; mpInL.textContent="1 · Paste the host's invite code here, then Connect:"; mpIn.placeholder="paste code here"; }
-  });
+  }
+  // Click Host/Join again to unselect and back out (player feedback: you couldn't unclick it).
+  function closeMp(){
+    try{ if(NET.role()) NET.close(); }catch(e){}
+    NETX.on=false; NETX.role=null; NETX.guests.clear(); NETX.pmap={};
+    mpBox.style.display="none";
+    mpHostB.classList.remove("sel"); mpJoinB.classList.remove("sel"); mpAddB.style.display="none";
+    mpOut.value=""; mpOut.classList.remove("code6"); mpIn.value=""; mpStatus("");
+    oBtn.disabled=false; if(oSetup.style.display!=="none") oBtn.textContent="Start";
+  }
+  mpHostB.addEventListener("click", ()=>{ if(mpHostB.classList.contains("sel")) closeMp(); else newInvite(); });
+  mpAddB.addEventListener("click", newInvite);
+  mpJoinB.addEventListener("click", ()=>{ if(mpJoinB.classList.contains("sel")) closeMp(); else openJoin(); });
   mpApply.addEventListener("click", async ()=>{
     const code=mpIn.value.trim(); if(!code){ mpStatus("Enter a code first."); return; }
     try{

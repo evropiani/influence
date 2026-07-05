@@ -121,7 +121,7 @@
 
   /* "More modes" disclosure in the setup screen */
   .moretoggle{opacity:.85}
-  .morebox{flex-basis:100%;display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-top:4px}
+  .morebox{flex-basis:100%;display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
 
   /* secondary "Main menu" button on the results screen */
   #menuBtn2{font-family:var(--mono);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);background:transparent;border:1px solid var(--line);border-radius:9px;padding:9px 20px;margin-top:9px;cursor:pointer}

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <title>Influence</title>
-<link rel="stylesheet" href="influence.css">
+<link rel="stylesheet" href="influence.css?v=3">
 </head>
 <body> 
 <div id="wrap">
@@ -46,7 +46,7 @@
   <div id="bottombar">
     <div class="stat" id="influence"><span class="k">Influence</span><span class="v">0</span></div>
     <div class="stat"><span class="k">Income</span><span class="v" id="incomeV">0</span><span class="ctx">/s</span></div>
-    <div class="commit"><span class="k">Commit</span><input id="pct" type="range" min="5" max="100" step="5" value="50"><span id="pctV">50%</span><span class="ctx">&rarr; <b id="budgetV">0</b> px</span></div>
+    <div class="commit"><span class="k" title="How much of your influence each click spends">Influence / click</span><input id="pct" type="range" min="5" max="100" step="5" value="50"><span id="pctV">50%</span><span class="ctx">&rarr; <b id="budgetV">0</b> px</span></div>
     <span id="cellInfo"></span>
     <span id="baseInfo" class="ok"></span>
     <div id="buildbar">
@@ -58,12 +58,12 @@
       <button id="menuBtn" class="bbtn" title="Quit to the main menu">☰ Menu</button>
     </div>
     <div class="spacer"></div>
-    <div id="hint">Tap to grow · drag to pan · wheel to zoom · keys <b>1–4</b> tools · <b>Q/E</b> commit · Ctrl+click paints walls</div>
+    <div id="hint">Tap to grow · drag to pan · wheel to zoom · keys <b>1–4</b> tools · <b>Q/E</b> influence/click · Ctrl+click paints walls</div>
   </div>
 </div>
 
-<script src="sound.js" defer></script>
-<script src="net.js" defer></script>
-<script src="influence.js" defer></script>
+<script src="sound.js?v=3" defer></script>
+<script src="net.js?v=3" defer></script>
+<script src="influence.js?v=3" defer></script>
 </body>
 </html>
