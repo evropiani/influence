@@ -145,6 +145,17 @@ const dispName=p=> p.tag ? `[${p.tag}] ${p.name}` : p.name;
 const ENTRENCH_LEVELS=5;
 const capOf=pl=>CONFIG.CAP_BASE + pl.nodeCount*CONFIG.CAP_PER_NODE + (pl.farmCount||0)*CONFIG.CAP_PER_FARM;
 const enemyCost=idx=>CONFIG.ENEMY_BASE + Math.ceil(defense[idx]);
+// Node levels: hold a node and it matures — level II at 45s, level III at 120s — paying up to
+// +60% income. Rewards actually defending ground, and makes a mature node a juicy steal (the
+// capture bonus scales with the level you rip away).
+const NODE_LVL_MULT=[1,1.3,1.6];
+function nodeLevel(nd){ if(nd.owner<0||nd.dead) return 1; const h=simTime-(nd.since||0); return h>=120?3:(h>=45?2:1); }
+function incomeOf(pl){
+  let ni=0; for(const nd of nodes){ if(nd.owner===pl.idx && !nd.dead) ni+=CONFIG.INCOME_PER_NODE*NODE_LVL_MULT[nodeLevel(nd)-1]; }
+  let inc=ni + pl.cells*CONFIG.INCOME_PER_CELL + CONFIG.TRICKLE;
+  if(!pl.hasBase) inc*=(1-CONFIG.BASE_PENALTY);
+  return inc;
+}
 // Overextension surcharge: extra cost per newly-taken cell once a player already dominates the map.
 // Zero until they pass OVEREXTEND_START of the field, then ramps to OVEREXTEND_MAX. Curbs snowballing.
 function overtax(pIdx){
@@ -228,10 +239,11 @@ function captureNode(nIdx, newOwner){
   if(wasBase){ nd.base=false; if(prev>=0){ players[prev].hasBase=false; players[prev].baseIdx=-1; } if(prev===0){ flash("Base lost — income −30%"); SND.play("baseLost"); } }
   if(newOwner===0) SND.play("node");
   else if(prev===0 && !wasBase) SND.play("nodeLost");
-  nd.owner=newOwner;
+  const stolenLvl=nodeLevel(nd);                     // level the victim built up — bigger steal, bigger payout
+  nd.owner=newOwner; nd.since=simTime; nd.threat=false;
   if(prev>=0) players[prev].nodeCount--;
   players[newOwner].nodeCount++;
-  players[newOwner].influence += (prev>=0?CONFIG.CAPTURE_ENEMY:CONFIG.CAPTURE_NEUTRAL);
+  players[newOwner].influence += Math.round(prev>=0?CONFIG.CAPTURE_ENEMY*NODE_LVL_MULT[stolenLvl-1]:CONFIG.CAPTURE_NEUTRAL);
   if(!reduceMotion) flashes.push({cx:nd.cx, cy:nd.cy, t:0, rgb:players[newOwner].rgb, big:wasBase});
 }
 function makeBase(nIdx, pIdx){
@@ -501,7 +513,7 @@ function trySetSpawn(cx,cy,pIdx=MY){
 function beginPlay(){
   players.forEach(pl=>{ const s=pl._spawn; const bi=nodes.length;
     blocked[s.cy*COLS+s.cx]=0;                                    // never let a barrier sit on a base
-    nodes.push({cx:s.cx,cy:s.cy,owner:pl.idx,base:true}); pl.nodeCount=1; pl.hasBase=true; pl.baseIdx=bi;
+    nodes.push({cx:s.cx,cy:s.cy,owner:pl.idx,base:true,since:0}); pl.nodeCount=1; pl.hasBase=true; pl.baseIdx=bi;
     fillDisc(s.cx,s.cy,CONFIG.START_R,pl.idx); });
   rebuildCellNode();
   phase="play"; playStart=performance.now(); lastT=performance.now();
@@ -593,7 +605,7 @@ function startDemo(){
   assignSpawns(); computeColors();
   players.forEach(pl=>{ const s=pl._spawn, bi=nodes.length;
     blocked[s.cy*COLS+s.cx]=0;
-    nodes.push({cx:s.cx,cy:s.cy,owner:pl.idx,base:true}); pl.nodeCount=1; pl.hasBase=true; pl.baseIdx=bi;
+    nodes.push({cx:s.cx,cy:s.cy,owner:pl.idx,base:true,since:0}); pl.nodeCount=1; pl.hasBase=true; pl.baseIdx=bi;
     fillDisc(s.cx,s.cy,CONFIG.START_R,pl.idx); });
   rebuildCellNode();
   // warm the match up so the menu opens onto an ongoing battle, not empty ground
@@ -625,9 +637,7 @@ function stepDemo(dt){
     if(b.type==="farm"){ if(b.acc>=CONFIG.FARM_PERIOD){ b.acc-=CONFIG.FARM_PERIOD; players[b.owner].influence+=MODS.farmYield; } }
     else if(b.acc>=MODS.outPeriod){ b.acc-=MODS.outPeriod; outpostFire(b); } }
   for(const pl of players){ if(!pl.alive) continue;
-    let inc=pl.nodeCount*CONFIG.INCOME_PER_NODE + pl.cells*CONFIG.INCOME_PER_CELL + CONFIG.TRICKLE;
-    if(!pl.hasBase) inc*=(1-CONFIG.BASE_PENALTY);
-    inc*=2.5;                                            // demo pace: keep the bots visibly busy
+    const inc=incomeOf(pl)*2.5;                          // demo pace: keep the bots visibly busy
     const cap=capOf(pl); if(pl.influence<cap) pl.influence=Math.min(cap, pl.influence+inc*dt); }
   for(const pl of players){ if(pl.alive && pl.cells<=0) pl.alive=false; }
   if(CONFIG.OBSTACLES){ obstacleTimer-=dt; if(obstacleTimer<=0){ obstacleTimer=CONFIG.OBSTACLE_INTERVAL; spawnDynamicObstacle(); } }
@@ -691,12 +701,12 @@ function step(dt){
   for(const pl of players){ if(pl._bombCd>0) pl._bombCd=Math.max(0,pl._bombCd-dt); }
 
   for(const pl of players){ if(!pl.alive) continue;
-    let inc=pl.nodeCount*CONFIG.INCOME_PER_NODE + pl.cells*CONFIG.INCOME_PER_CELL + CONFIG.TRICKLE;
-    if(!pl.hasBase) inc*=(1-CONFIG.BASE_PENALTY);
+    const inc=incomeOf(pl);
     const cap=capOf(pl);
     if(pl.influence<cap) pl.influence=Math.min(cap, pl.influence+inc*dt); }
 
-  for(const pl of players){ if(pl.alive && pl.cells<=0) pl.alive=false; }
+  for(const pl of players){ if(pl.alive && pl.cells<=0){ pl.alive=false;
+    if(!demo && pl.idx!==MY){ flash(dispName(pl)+" eliminated"); SND.play("nodeLost"); } } }
 
   maybeTip();
 
@@ -844,8 +854,28 @@ function mmJump(e){ const r=mm.getBoundingClientRect();
 mm.addEventListener("pointerdown", e=>{ e.preventDefault(); mm.setPointerCapture(e.pointerId); mmJump(e); });
 mm.addEventListener("pointermove", e=>{ if(e.buttons||e.pressure>0) mmJump(e); });
 
+// Node attack warnings: every ~0.6s look for enemy cells closing in on an owned node. Your own
+// threatened nodes pulse red on the map and minimap, with one rate-limited alert — the review's
+// "you might not even notice another player had snuck around behind you", answered.
+let threatScanT=0, threatWarnT=-1e9;
+function scanThreats(){
+  for(const nd of nodes){
+    if(nd.owner<0 || nd.dead){ nd.threat=false; continue; }
+    let t=false;
+    for(let dr=-3;dr<=3 && !t;dr++){ const r=nd.cy+dr; if(r<0||r>=ROWS) continue; const row=r*COLS;
+      for(let dc=-3;dc<=3;dc++){ const c=nd.cx+dc; if(c<0||c>=COLS) continue;
+        const o=owner[row+c]; if(o>=0 && o!==nd.owner && !sameTeam(o,nd.owner)){ t=true; break; } } }
+    nd.threat=t;
+  }
+}
 function render(){
   document.body.classList.toggle("menu", phase==="over");   // blurs the demo field + hides the top HUD on the menu
+  if(!demo && phase==="play" && performance.now()-threatScanT>600){
+    threatScanT=performance.now(); scanThreats();
+    if(nodes.some(n=>n.threat && n.owner===MY) && performance.now()-threatWarnT>9000){
+      threatWarnT=performance.now(); flash("⚠ Node under attack!"); SND.play("attack");
+    }
+  }
   ctx.fillStyle=BG; ctx.fillRect(0,0,VIEW_W,VIEW_H);
 
   const cw=CELL*cam.zoom;
@@ -879,6 +909,14 @@ function render(){
       const lvl=dfn<=0?0:Math.min(ENTRENCH_LEVELS-1,(dfn/CONFIG.DEF_MAX*(ENTRENCH_LEVELS-1))|0);
       ctx.fillStyle=playerShades[ow][lvl];
       ctx.fillRect(sx, sy, cw+1, cw+1);
+      if(cw>=6){
+        // frontline seams: a dark hairline wherever ownership changes, so borders read at a glance
+        const sw=Math.max(1,cw*0.12); ctx.fillStyle="rgba(12,15,21,0.5)";
+        if(c>0        && owner[idx-1]   !==ow) ctx.fillRect(sx, sy, sw, cw+1);
+        if(c<COLS-1   && owner[idx+1]   !==ow) ctx.fillRect(sx+cw+1-sw, sy, sw, cw+1);
+        if(r>0        && owner[idx-COLS]!==ow) ctx.fillRect(sx, sy, cw+1, sw);
+        if(r<ROWS-1   && owner[idx+COLS]!==ow) ctx.fillRect(sx, sy+cw+1-sw, cw+1, sw);
+      }
       if(wall[idx]){
         ctx.fillStyle="#cdd2db"; ctx.fillRect(sx+inset, sy+inset, wsz, wsz);
         ctx.fillStyle="rgba(20,24,32,0.5)"; ctx.fillRect(sx+inset, sy+cw*0.47, wsz, Math.max(1,cw*0.08));
@@ -949,6 +987,19 @@ function render(){
       ctx.fillStyle=rgbStr(players[nd.owner].rgb); ctx.beginPath(); ctx.arc(sx,sy,R,0,Math.PI*2); ctx.fill();
       ctx.strokeStyle="rgba(255,255,255,0.85)"; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(sx,sy,R,0,Math.PI*2); ctx.stroke();
       ctx.fillStyle="rgba(255,255,255,0.9)"; ctx.beginPath(); ctx.arc(sx,sy,R*0.34,0,Math.PI*2); ctx.fill();
+      // level pips: a matured node shows II / III as small dots under the ring
+      const nlvl=nodeLevel(nd);
+      if(nlvl>1 && cw>=4){
+        ctx.fillStyle="rgba(255,255,255,0.95)";
+        const pr=Math.max(1.4,R*0.16), gap=pr*2.6, y=sy+R*1.55;
+        for(let i=0;i<nlvl;i++){ ctx.beginPath(); ctx.arc(sx+(i-(nlvl-1)/2)*gap, y, pr, 0, Math.PI*2); ctx.fill(); }
+      }
+    }
+    if(nd.threat && nd.owner===MY && phase==="play"){
+      // enemies are closing in on this node — pulsing red warning ring
+      const tp=reduceMotion?0.8:(0.45+0.55*Math.abs(Math.sin(tnow*0.008)));
+      ctx.strokeStyle=`rgba(215,70,58,${tp})`; ctx.lineWidth=2.5; ctx.setLineDash([5,4]);
+      ctx.beginPath(); ctx.arc(sx,sy,R*(nd.base?2.7:1.75),0,Math.PI*2); ctx.stroke(); ctx.setLineDash([]);
     }
     if(noBase && nd.owner===MY && !nd.base && defense[nd.cy*COLS+nd.cx]>=CONFIG.DEF_MAX){
       const pulse=reduceMotion?1:(0.55+0.45*Math.sin(tnow*0.006));
@@ -1048,6 +1099,13 @@ function drawMinimap(){
     mctx.strokeStyle="rgba(201,162,75,0.95)"; mctx.lineWidth=1.5;
     mctx.beginPath(); mctx.ellipse(hillC.cx*CELL*scx, hillC.cy*CELL*scy, hillC.r*CELL*scx, hillC.r*CELL*scy, 0, 0, Math.PI*2); mctx.stroke();
   }
+  if(!demo && phase==="play"){
+    // threatened own nodes blink red on the minimap so a flank never goes unnoticed
+    const on=reduceMotion || (performance.now()%900)<560;
+    if(on){ mctx.fillStyle="rgb(228,72,58)";
+      for(const nd of nodes){ if(nd.threat && nd.owner===MY && !nd.dead)
+        mctx.fillRect(nd.cx*CELL*scx-1.5, nd.cy*CELL*scy-1.5, 4, 4); } }
+  }
   mctx.strokeStyle="rgba(231,233,238,0.85)"; mctx.lineWidth=1;
   mctx.strokeRect(cam.x*scx, cam.y*scy, (VIEW_W/cam.zoom)*scx, (VIEW_H/cam.zoom)*scy);
 }
@@ -1101,13 +1159,14 @@ function updateHUD(){
   drawClock();
   const me=players[MY];
   infV.textContent=`${Math.floor(me.influence)} / ${capOf(me)}`;
-  let inc=me.nodeCount*CONFIG.INCOME_PER_NODE + me.cells*CONFIG.INCOME_PER_CELL + CONFIG.TRICKLE;
-  if(!me.hasBase) inc*=(1-CONFIG.BASE_PENALTY);
-  incV.textContent=inc.toFixed(1);
+  incV.textContent=incomeOf(me).toFixed(1);
   budgetV.textContent=Math.ceil(me.influence*commitPct/100);
   const myCd=players[MY]._bombCd||0;
   bombBtn.textContent = myCd>0 ? `Bomb ${Math.ceil(myCd)}s` : `Bomb ${CONFIG.BOMBARD_COST}`;
   bombBtn.classList.toggle("cooling", myCd>0);
+  if(myCd>0){ const f=Math.round(100-myCd/MODS.bombCd*100);   // recharge fills the button back up
+    bombBtn.style.background=`linear-gradient(90deg, rgba(207,122,63,.30) ${f}%, transparent ${f}%)`; }
+  else if(bombBtn.style.background) bombBtn.style.background="";
   if(me.hasBase){ baseInfo.className="ok"; }
   else {
     let eligible=false;
@@ -1213,10 +1272,19 @@ function buildSetup(){
   // Classic is the clear default; the rest are tucked behind "More modes" so new players aren't
   // overwhelmed by seven choices before their first game (player feedback).
   const md=document.getElementById("mode"); md.innerHTML="";
+  const MODE_DESC={ timed:"Most territory when the 5-minute clock ends wins.",
+    royale:"No clock — lose all your land and you're out. Last one standing wins.",
+    hill:"Hold the golden centre zone for 60 total seconds to win.",
+    dom:"Race to own 75% of the map — turbo bombs, farms and outposts.",
+    zone:"The map collapses 5 times. Survive and hold the final circle.",
+    team2:"You + a bot ally in one colour vs an enemy team. Most combined ground wins.",
+    team3:"You + two bot allies in one colour vs an enemy team. Most combined ground wins." };
+  const desc=document.createElement("div"); desc.className="modedesc";
+  const setDesc=()=>{ desc.textContent=MODE_DESC[setupSel.mode]||""; };
   const clearSel=()=>[...md.querySelectorAll(".modeseg")].forEach(c=>c.classList.remove("sel"));
   const mkModeBtn=([val,lab])=>{ const b=document.createElement("button");
     b.className="seg modeseg"+(setupSel.mode===val?" sel":""); b.textContent=lab;
-    b.onclick=()=>{ setupSel.mode=val; clearSel(); b.classList.add("sel"); num.disabled=val==="team2"||val==="team3"; };
+    b.onclick=()=>{ setupSel.mode=val; clearSel(); b.classList.add("sel"); num.disabled=val==="team2"||val==="team3"; setDesc(); };
     return b; };
   [["timed","Classic"],["royale","Battle Royale"]].forEach(m=>md.appendChild(mkModeBtn(m)));
   const MORE=[["hill","King Of The Hill"],["dom","Domination"],["zone","The Zone"],["team2","2v2"],["team3","3v3"]];
@@ -1226,11 +1294,11 @@ function buildSetup(){
   const moreBox=document.createElement("div"); moreBox.className="morebox"; moreBox.style.display=moreOpen?"":"none";
   MORE.forEach(m=>moreBox.appendChild(mkModeBtn(m)));
   moreBtn.onclick=()=>{ const open=moreBox.style.display==="none"; moreBox.style.display=open?"":"none"; moreBtn.textContent=open?"More modes ▾":"More modes ▸"; };
-  md.appendChild(moreBtn); md.appendChild(moreBox);
+  md.appendChild(moreBtn); md.appendChild(moreBox); md.appendChild(desc); setDesc();
 }
 function showSetup(){
   oTitle.textContent="Influence";
-  oSub.innerHTML="Spend influence to claim land — it goes into cells one-for-one. Pick a spawn, then <b>tap toward where you want to grow</b>. Empty land is cheap; enemy land costs more the longer it's held. Capture <b>nodes</b> for income, guard your <b>base</b>, and spend influence on <b>walls, farms, outposts and bombs</b> from the bottom bar (keys <b>1–4</b>). Most ground when the clock runs out — or last one standing in Battle Royale.<div style=\"margin-top:12px\"><a class=\"howto\" href=\"index.html\">How to play</a></div>";
+  oSub.innerHTML="Claim land. Capture nodes. Hold the most ground.<div style=\"margin-top:10px\"><a class=\"howto\" href=\"tutorial.html\">Tutorial →</a></div>";
   oSetup.style.display=""; oStandings.innerHTML=""; oBtn.textContent="Start";
   menuBtn2.style.display="none";
   overlay.classList.remove("hidden"); buildSetup();
@@ -1349,7 +1417,7 @@ function hostSendInit(){
   const base={mode:gameMode,
     players:players.map(p=>({name:p.name,tag:p.tag,rgb:p.rgb,team:p.team})),
     hill:hillC?{cx:hillC.cx,cy:hillC.cy,r:hillC.r}:null,
-    nodes:nodes.map(n=>[n.cx,n.cy,n.owner,n.base?1:0,n.dead?1:0])};
+    nodes:nodes.map(n=>[n.cx,n.cy,n.owner,n.base?1:0,n.dead?1:0,n.owner>=0?Math.max(0,Math.round(simTime-(n.since||0))):0])};
   for(const [pid,idx] of Object.entries(NETX.pmap)) NET.sendTo(+pid, {t:"init", myIdx:idx, ...base});
   NETX.so.fill(-1); NETX.sw.fill(0); NETX.sb.fill(0); NETX.nodeLen=nodes.length; NETX.acc=1;
 }
@@ -1357,7 +1425,7 @@ function hostTick(dt){
   if(!NET.connected()) return;
   NETX.acc+=dt; if(NETX.acc<0.1) return; NETX.acc=0;
   if(nodes.length!==NETX.nodeLen){ NETX.nodeLen=nodes.length;
-    NET.send({t:"nodes", nodes:nodes.map(n=>[n.cx,n.cy,n.owner,n.base?1:0,n.dead?1:0])}); }
+    NET.send({t:"nodes", nodes:nodes.map(n=>[n.cx,n.cy,n.owner,n.base?1:0,n.dead?1:0,n.owner>=0?Math.max(0,Math.round(simTime-(n.since||0))):0])}); }
   const d=[];
   for(let i=0;i<N;i++){
     if(owner[i]!==NETX.so[i]||wall[i]!==NETX.sw[i]||blocked[i]!==NETX.sb[i]){
@@ -1393,7 +1461,7 @@ function hostOnMsg(m,pid){
     case "base": { const ni=m.ni|0; if(nodes[ni] && nodes[ni].owner===pi) makeBase(ni,pi); break; }
   }
 }
-function applyNodes(arr){ nodes=arr.map(a=>({cx:a[0],cy:a[1],owner:a[2],base:!!a[3],dead:!!a[4]})); rebuildCellNode(); }
+function applyNodes(arr){ nodes=arr.map(a=>({cx:a[0],cy:a[1],owner:a[2],base:!!a[3],dead:!!a[4],since:simTime-(a[5]||0)})); rebuildCellNode(); }
 function guestInit(m){
   demo=false; SND.music(false);
   MY=Math.max(1, m.myIdx|0); NETX.on=true; NETX.role="guest"; NETX.centered=false;
@@ -1425,7 +1493,7 @@ function guestTick(m){
   for(let i=0;i<players.length&&i<m.st.length;i++){ const t=m.st[i], p=players[i];
     p.cells=t[0]; p.influence=t[1]; p.nodeCount=t[2]; p.farmCount=t[3]; p.alive=!!t[4]; p._hill=t[5]; p._bombCd=t[6]; p.hasBase=!!t[7]; }
   for(let i=0;i<nodes.length&&i<m.nd.length;i++){ const a=m.nd[i], nd=nodes[i];
-    if(nd.owner!==a[0]){ if(a[0]===MY) SND.play("node"); else if(nd.owner===MY) SND.play("nodeLost"); nd.owner=a[0];
+    if(nd.owner!==a[0]){ if(a[0]===MY) SND.play("node"); else if(nd.owner===MY) SND.play("nodeLost"); nd.owner=a[0]; nd.since=simTime;
       if(!reduceMotion) flashes.push({cx:nd.cx,cy:nd.cy,t:0,rgb:players[a[0]]?players[a[0]].rgb:[200,200,200]}); }
     nd.base=!!a[1]; nd.dead=!!a[2]; }
   builds=m.bl.map(a=>({cx:a[0],cy:a[1],type:a[2]?"outpost":"farm",owner:a[3],acc:0,alive:true}));

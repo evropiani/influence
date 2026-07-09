@@ -1,6 +1,15 @@
 # Changelog
 
-All notable changes to **Influence**, newest first. Also published as `changelog.html` on the site, and the latest day's changes appear in the "Latest changes" box on the how-to page.
+All notable changes to **Influence**, newest first. Also published as `changelog.html` on the site, and the latest day's changes appear in the "Latest changes" box on the tutorial page.
+
+## 2026-07-09
+
+- **The game is the front page now**: `index.html` is the game itself; the how-to moved to `tutorial.html`; old `influence.html` links redirect. One click less to start playing.
+- **Nodes level up**: hold a node for 45s / 120s and it reaches level II / III, paying **+30% / +60% income** — small pips under the ring show the level. Stealing a levelled node pays a proportionally bigger capture bonus, so mature nodes are worth defending *and* worth raiding.
+- **Node attack warnings**: when enemy territory closes in on one of your nodes it **pulses red** on the map and blinks on the minimap, with a rate-limited "node under attack" alert — flanks can't be snuck around unnoticed anymore.
+- **Frontline seams**: territory borders are drawn with a dark hairline, so fronts, pockets and encirclements read at a glance.
+- **Cleaner start menu**: the wall of intro text is now one line plus a Tutorial link, a live one-line description of the selected mode, and shorter labels ("Color", "Multiplayer (P2P)").
+- **Small polish**: the bomb button visually fills back up while recharging, eliminations are announced as they happen, and the board has a subtle vignette.
 
 ## 2026-07-04
 

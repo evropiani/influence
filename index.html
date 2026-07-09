@@ -2,247 +2,69 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
-<title>Influence — How to Play</title>
-<style>
-  :root{
-    --bg:#141821;--card:#1c2029;--panel:#2b313f;--line:#3a4255;
-    --ink:#e7e9ee;--muted:#97a2b4;--accent:#cf7a3f;
-    --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
-    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-  }
-  *{box-sizing:border-box;margin:0;padding:0}
-  body{background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.6;
-    -webkit-font-smoothing:antialiased;padding:32px 18px 80px}
-  .wrap{max-width:720px;margin:0 auto}
-
-  header{margin-bottom:22px;display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap}
-  header a.play{margin-top:2px}
-  .badge{display:inline-block;font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;
-    color:var(--accent);border:1px solid var(--accent);border-radius:20px;padding:3px 11px;margin-bottom:14px}
-  h1{font-family:var(--mono);font-size:34px;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
-  .tag{color:var(--muted);font-size:15px;margin-top:8px}
-
-  section{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px 22px;margin-bottom:14px}
-  h2{font-family:var(--mono);font-size:16px;letter-spacing:.05em;text-transform:uppercase;margin-bottom:10px;
-    display:flex;align-items:center;gap:10px}
-  h2::before{content:"";width:10px;height:10px;border-radius:2px;background:var(--accent);flex:none}
-  p{color:#d4dae5;margin:8px 0}
-  p.lead{font-size:16px}
-  b{color:var(--ink);font-weight:600}
-  .accent{color:var(--accent);font-weight:600}
-
-  ul{list-style:none;margin:8px 0}
-  li{position:relative;padding-left:20px;margin:7px 0;color:#d4dae5}
-  li::before{content:"";position:absolute;left:2px;top:9px;width:6px;height:6px;border-radius:50%;background:var(--accent)}
-  ol.steps{counter-reset:s;list-style:none;margin:8px 0}
-  .steps li{padding-left:34px;margin:11px 0}
-  .steps li::before{counter-increment:s;content:counter(s);top:1px;left:0;width:22px;height:22px;border-radius:6px;
-    background:var(--panel);color:var(--ink);font-family:var(--mono);font-size:12px;font-weight:700;
-    display:flex;align-items:center;justify-content:center}
-
-  .kbd{display:inline-block;font-family:var(--mono);font-size:12px;font-weight:700;color:var(--ink);
-    background:var(--panel);border:1px solid var(--line);border-bottom-width:2px;border-radius:6px;
-    padding:1px 8px;margin-right:2px;vertical-align:baseline}
-
-  .cat{font-family:var(--mono);font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);
-    margin:26px 0 12px;display:flex;align-items:center;gap:12px}
-  .cat::after{content:"";flex:1;height:1px;background:var(--line)}
-
-  details.acc{background:var(--card);border:1px solid var(--line);border-radius:14px;margin-bottom:10px}
-  details.acc summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:10px;padding:15px 20px;
-    font-family:var(--mono);font-size:14px;letter-spacing:.05em;text-transform:uppercase;font-weight:700;user-select:none}
-  details.acc summary::-webkit-details-marker{display:none}
-  details.acc summary::before{content:"";width:10px;height:10px;border-radius:2px;background:var(--accent);flex:none}
-  details.acc summary .cost{color:var(--muted);font-weight:400;font-size:12px;margin-left:4px}
-  details.acc summary::after{content:"+";margin-left:auto;color:var(--muted);font-size:19px;line-height:1;flex:none}
-  details.acc[open] summary::after{content:"–"}
-  details.acc summary:hover{color:var(--accent)}
-  details.acc .inner{padding:0 20px 18px}
-  details.latest{background:rgba(207,122,63,.13);border:1px solid var(--accent);margin-bottom:16px}
-  details.latest summary{color:var(--accent)}
-  details.latest summary::after{color:var(--accent)}
-  details.latest .when{color:var(--muted);font-weight:400;font-size:12px;letter-spacing:.08em;margin-left:6px}
-  a.cl{color:var(--accent);font-family:var(--mono);font-size:12px;font-weight:700;text-decoration:none}
-  a.cl:hover{text-decoration:underline}
-
-  .two{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-  .sub{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
-  @media (max-width:560px){ .two{grid-template-columns:1fr} h1{font-size:26px} }
-
-  .swatches{display:flex;gap:18px;flex-wrap:wrap;margin:10px 0 4px}
-  .demo{display:flex;align-items:center;gap:10px}
-  .box{width:30px;height:30px;border-radius:6px;border:1px solid rgba(255,255,255,.15)}
-  .demo .t{font-size:13px}.demo .t small{display:block;color:var(--muted);font-size:11px}
-  .caption{font-size:12.5px;color:var(--muted);margin:8px 0 2px}
-
-  /* compact reference rows for tools & modes */
-  .rows{margin:2px 0}
-  .row{display:flex;gap:16px;padding:11px 0;border-top:1px solid var(--line);align-items:baseline}
-  .row:first-child{border-top:none}
-  .rk{flex:0 0 128px;font-family:var(--mono);font-size:13px;color:var(--ink);font-weight:700}
-  .rk .c{color:var(--accent);font-weight:400}
-  .rv{flex:1;font-size:14px;color:#d4dae5}
-  @media (max-width:560px){ .row{flex-direction:column;gap:3px} .rk{flex-basis:auto} }
-
-  .contact{background:linear-gradient(135deg,#2b313f,#242a37);border-color:#4a5266}
-  .discord{font-family:var(--mono);color:var(--accent);font-weight:700}
-  .discord a{text-decoration:none;color:inherit}
-  a.play{display:inline-block;font-family:var(--mono);font-weight:700;letter-spacing:.06em;text-transform:uppercase;
-    text-decoration:none;color:#141821;background:var(--accent);border-radius:10px;padding:12px 26px;margin-top:6px}
-  a.play:hover{filter:brightness(1.08)}
-  footer{color:var(--muted);font-size:12px;text-align:center;margin-top:26px;font-family:var(--mono)}
-  footer a{color:var(--muted)} footer a:hover{color:var(--ink)}
-  .mwc{color:var(--accent);opacity:.75;font-size:11px;margin-top:5px}
-</style>
+<title>Influence</title>
+<link rel="stylesheet" href="influence.css?v=4">
 </head>
-<body>
-<div class="wrap">
-  <header>
-    <div>
-      <div class="badge">Beta</div>
-      <h1>Influence</h1>
-      <p class="tag">Paint the map your colour. Feed your economy. Ruin somebody's afternoon.</p>
-    </div>
-    <a class="play" href="influence.html">Play</a>
-  </header>
-
-  <details class="acc latest">
-    <summary>Latest changes <span class="when">· 2026-07-04</span></summary>
-    <div class="inner">
-      <ul>
-        <li><b>Redesign from player feedback:</b> fewer but more meaningful nodes, an anti-snowball rule so a lead can't steamroll on its own, slower/less robotic bots, a calmer readable opening, clearer bases and countdown, <span class="kbd">Q</span><span class="kbd">E</span> to set influence-per-click, and a Menu button. Still hard — just fairer to read.</li>
-        <li><b>6-character invite codes</b> for friend matches (the old long copy-paste codes still work as a fallback).</li>
-      </ul>
-      <p style="margin-top:10px"><a class="cl" href="changelog.html">Full changelog →</a></p>
-    </div>
-  </details>
-
-  <section>
-    <h2>Start in 20 seconds</h2>
-    <p class="lead">You spend <span class="accent">influence</span> to claim land — one point per cell. Capture <span class="accent">nodes</span> (the ringed dots) to earn more of it. Whoever holds the most ground when the timer ends wins.</p>
-    <ol class="steps">
-      <li><b>Pick your spawn</b> when the round starts — near a couple of nodes, away from rivals.</li>
-      <li><b>Tap toward where you want to grow.</b> Push at enemies, roll over nodes to capture them.</li>
-      <li>Once your economy is steady, spend on <b>walls, farms, outposts and bombs</b> from the bottom bar (keys <span class="kbd">1</span>–<span class="kbd">4</span>).</li>
-    </ol>
-    <p class="caption">That's genuinely all you need to play. Everything below is reference — open a section only when you want the detail.</p>
-  </section>
-
-  <div class="cat">The basics</div>
-
-  <details class="acc">
-    <summary>Land, influence &amp; nodes</summary>
-    <div class="inner">
-      <p>Each cell you own trickles a little income. <b>Nodes</b> pay far more, raise your spending <b>cap</b>, and let you push out further for less. So the loop is simple: <b>grab nodes → earn influence → claim land → grab more nodes.</b></p>
-      <p>Empty land costs <b>1</b> per cell. Enemy land costs more the longer they've held it:</p>
-      <div class="swatches">
-        <div class="demo"><span class="box" style="background:#3a8f86"></span><span class="t">Bright<small>fresh · soft · cheap</small></span></div>
-        <div class="demo"><span class="box" style="background:#245953"></span><span class="t">Dark<small>dug in · tough · pricey</small></span></div>
-      </div>
-      <p>Hit the bright seams; don't grind into dark cores. Two catches keep a lead honest: pushing <b>far from your own nodes</b> costs extra, and once you already <b>dominate the map</b>, new land costs a little more still — your supply lines are stretched. A commanding lead still wins; it just can't steamroll on autopilot.</p>
-      <p>The <b>Influence / click</b> slider (bottom bar) sets how much of your influence each tap spends — low for careful pokes, high to throw everything at one push. Tap <span class="kbd">Q</span>/<span class="kbd">E</span> to step it mid-fight.</p>
-    </div>
-  </details>
-
-  <details class="acc">
-    <summary>Your base &amp; barriers</summary>
-    <div class="inner">
-      <p>You start with a <b>base</b> (the star). Lose it and your income drops <span class="accent">30%</span> until you rebuild one: hold a node until it's fully <b>entrenched</b> (it starts to glow), tap it, and pay <span class="accent">300</span>. Your own base has a bright, pulsing ring so you can always find it.</p>
-      <p>Grey <b>rock barriers</b> can't be owned or crossed — territory flows around them like water. Some are there from the start; new ones keep drifting in <b>mid-round</b> (after a calm opening), so a lane that's open now might close later.</p>
-    </div>
-  </details>
-
-  <details class="acc">
-    <summary>Controls</summary>
-    <div class="inner">
-      <div class="two">
-        <div>
-          <div class="sub">PC</div>
-          <ul>
-            <li><b>Click</b> toward where you want to grow.</li>
-            <li><b>Drag</b> to pan · <b>wheel</b> to zoom · <b>WASD</b> too.</li>
-            <li><span class="kbd">1</span><span class="kbd">2</span><span class="kbd">3</span><span class="kbd">4</span> select Wall / Farm / Outpost / Bomb.</li>
-            <li><span class="kbd">Q</span><span class="kbd">E</span> lower / raise influence-per-click.</li>
-            <li><span class="kbd">M</span> toggles sound · <b>☰ Menu</b> quits to the menu.</li>
-            <li><b>Ctrl+click</b> also paints walls.</li>
-          </ul>
-        </div>
-        <div>
-          <div class="sub">Mobile</div>
-          <ul>
-            <li><b>Tap</b> toward where you want to grow.</li>
-            <li><b>Drag</b> to pan · <b>pinch</b> to zoom.</li>
-            <li>Tools live in the bottom bar.</li>
-            <li>Tap the <b>minimap</b> to jump around.</li>
-          </ul>
+<body> 
+<div id="wrap">
+  <div id="topbar"><div id="scoreboard"></div><div id="clock">0:00</div></div>
+  <div id="stage">
+    <canvas id="game" width="1000" height="667"></canvas>
+    <div id="vig"></div>
+    <canvas id="minimap" width="150" height="101"></canvas>
+    <div id="flash"></div>
+    <div id="spawnHint"></div>
+    <div id="overlay">
+     <div id="ovbox">
+      <div id="otitle">Influence</div>
+      <div id="osub"></div>
+      <div id="setup" class="field" style="gap:18px">
+        <div class="field"><label>Clan tag &amp; name</label><div class="namerow"><input id="tagIn" maxlength="3" placeholder="TAG" autocomplete="off"><input id="nameIn" maxlength="14" value="Player" autocomplete="off"></div></div>
+        <div class="field"><label>Color</label><div id="swatches"></div></div>
+        <div class="field"><label>Opponents (0–99)</label><div id="opps"></div></div>
+        <div class="field"><label>Difficulty</label><div id="diff"></div></div>
+        <div class="field"><label>Mode</label><div id="mode"></div></div>
+        <div class="field"><label>Multiplayer (P2P)</label>
+          <div id="mpBtns"><button class="seg" id="mpHost">Host</button><button class="seg" id="mpJoin">Join</button></div>
+          <div id="mpBtns2"><button class="seg" id="mpAdd" style="display:none">Add Player</button></div>
+          <div id="mpBox" style="display:none">
+            <div class="mpl" id="mpOutL"></div>
+            <div class="mprow"><textarea id="mpOut" readonly spellcheck="false"></textarea><button class="seg" id="mpCopy">Copy</button></div>
+            <div class="mpl" id="mpInL"></div>
+            <div class="mprow"><textarea id="mpIn" spellcheck="false" placeholder="paste code here"></textarea><button class="seg" id="mpApply">Connect</button></div>
+            <div id="mpStatus"></div>
+          </div>
         </div>
       </div>
+      <div id="standings"></div>
+      <button id="obtn">Start</button>
+      <button id="menuBtn2" style="display:none">Main menu</button>
+     </div>
     </div>
-  </details>
-
-  <div class="cat">Tools — spend from the bottom bar</div>
-
-  <section>
-    <div class="rows">
-      <div class="row"><span class="rk">Wall <span class="c">· 20</span></span><span class="rv">Blocks attackers, <b>25 durability</b>. They chip through it before taking the cell — damage shows as growing cracks. (<span class="kbd">1</span> or Ctrl+click to paint.)</span></div>
-      <div class="row"><span class="rk">Farm <span class="c">· 400</span></span><span class="rv">Your economy engine: <b>+120 influence every 15s</b> and <b>+40 cap</b>. Build it deep in safe territory; it pays for itself in under a minute.</span></div>
-      <div class="row"><span class="rk">Outpost <span class="c">· 300</span></span><span class="rv">Every 12s it claims up to <b>40 nearby cells</b>, preferring enemy land, and acts as a <b>forward base</b> you can expand and bomb from. Chain them toward a rival.</span></div>
-      <div class="row"><span class="rk">Bomb <span class="c">· 250</span></span><span class="rv">Aimed strike: craters enemy land, walls and buildings in your supply range (nodes survive). The crater <b>burns 10s</b> — they can't retake it, you can. <b>25s cooldown.</b></span></div>
+  </div>
+  <div id="bottombar">
+    <div class="stat" id="influence"><span class="k">Influence</span><span class="v">0</span></div>
+    <div class="stat"><span class="k">Income</span><span class="v" id="incomeV">0</span><span class="ctx">/s</span></div>
+    <div class="commit"><span class="k" title="How much of your influence each click spends">Influence / click</span><input id="pct" type="range" min="5" max="100" step="5" value="50"><span id="pctV">50%</span><span class="ctx">&rarr; <b id="budgetV">0</b> px</span></div>
+    <span id="cellInfo"></span>
+    <span id="baseInfo" class="ok"></span>
+    <div id="buildbar">
+      <button id="wallBtn" class="bbtn" title="Hotkey: 1 (or Ctrl+click)" disabled>Wall 20</button>
+      <button id="farmBtn" class="bbtn" title="Hotkey: 2" disabled>Farm 400</button>
+      <button id="outBtn" class="bbtn" title="Hotkey: 3" disabled>Outpost 300</button>
+      <button id="bombBtn" class="bbtn" title="Hotkey: 4" disabled>Bomb 250</button>
+      <button id="sndBtn" class="bbtn" title="Sound on/off (Hotkey: M)">♪ On</button>
+      <button id="menuBtn" class="bbtn" title="Quit to the main menu">☰ Menu</button>
     </div>
-  </section>
-
-  <div class="cat">Game modes</div>
-
-  <section>
-    <div class="rows">
-      <div class="row"><span class="rk">Classic</span><span class="rv">The default. <b>Most territory when the 5-minute timer ends wins.</b></span></div>
-      <div class="row"><span class="rk">Battle Royale</span><span class="rv">No clock. Lose all your land and you're out — <b>last one standing wins.</b></span></div>
-      <div class="row"><span class="rk">King Of The Hill</span><span class="rv">Hold more than half the golden centre zone; that builds your timer. <b>60 cumulative seconds wins</b> (getting knocked off pauses it, doesn't reset it).</span></div>
-      <div class="row"><span class="rk">Domination</span><span class="rv">A race — <b>first to 75% of the map wins.</b> Turbo economy: bombs recharge in 5s, farms pay +250, outposts fire every 6s.</span></div>
-      <div class="row"><span class="rk">The Zone</span><span class="rv">A circular map that <b>collapses 5 times</b> toward a random spot (a red ring warns you 20s ahead). Crushed land and nodes are gone for good. Most ground in the final ring wins.</span></div>
-      <div class="row"><span class="rk">Teams 2v2 / 3v3</span><span class="rv">Bot allies share <b>your colour</b> — no friendly fire, shared supply. <b>Most combined ground wins</b>, or wipe the other team out.</span></div>
-    </div>
-    <p class="caption">On the start screen you set <b>opponents</b> (0–99), <b>difficulty</b> (Easy / Normal / Hard) and the <b>mode</b> — Classic is selected by default; the rest sit under "More modes".</p>
-  </section>
-
-  <div class="cat">Play with a friend</div>
-
-  <details class="acc">
-    <summary>Play with a friend <span class="cost">· P2P</span></summary>
-    <div class="inner">
-      <p>Up to <b>4 humans</b> in one match (you + 3 friends), plus bots — or none at all for a pure friend fight. Your browsers connect <b>directly to each other</b>: no server, no accounts. Works in every mode except Teams.</p>
-      <ol class="steps">
-        <li><b>Host:</b> under "Play with a friend", press <b>Host</b>. A short <b>6-character code</b> appears — send it to your friend over any chat app.</li>
-        <li><b>Friend:</b> press <b>Join</b>, type that code, press <b>Connect</b>. You're in — no reply needed.</li>
-        <li><b>Host:</b> press <b>Add Player</b> for each extra friend (up to 3), then pick the mode, difficulty and bot count and press <b>Start</b>. Everyone chooses their own spawn.</li>
-      </ol>
-      <p class="caption">If two players pick the same colour, one is changed automatically. After a round the host presses <b>Play again</b> to rematch — no reconnecting. (If the code service is ever unreachable it falls back to longer copy-paste codes: you send an invite code, your friend sends a reply code back, you paste it. Some strict corporate/mobile networks can block the direct connection.)</p>
-    </div>
-  </details>
-
-  <section>
-    <h2>Quick tips</h2>
-    <ul>
-      <li>Grab the nearest nodes first — always. They fund everything.</li>
-      <li>Bright enemy edges are cheap; dark cores are a money pit — go around them, or bomb them open.</li>
-      <li>Farm early on safe ground, outpost toward the enemy, bomb the stubborn bits.</li>
-      <li>Watch for cracks on walls — yours and theirs.</li>
-      <li>In a timed game, territory only counts at 0:00 — spend your whole bar in the last few seconds.</li>
-    </ul>
-  </section>
-
-  <section class="contact">
-    <h2>It's a beta</h2>
-    <p>Expect things to change, break and get better. Ideas, bugs, balance gripes — I'd genuinely love to hear them.</p>
-    <p>Find me on Discord: <span class="discord"><a href="https://discord.com/users/319246364246540288/">@evropiani</a></span></p>
-    <a class="play" href="influence.html">Play</a>
-  </section>
-
-  <footer>Influence · Beta · © 2026 evropiani · <a href="imprint.html">Imprint</a>
-    <div class="mwc">✳ Made with Claude</div>
-  </footer>
+    <div class="spacer"></div>
+    <div id="hint">Tap to grow · drag to pan · wheel to zoom · keys <b>1–4</b> tools · <b>Q/E</b> influence/click · Ctrl+click paints walls</div>
+  </div>
 </div>
+
+<script src="sound.js?v=4" defer></script>
+<script src="net.js?v=4" defer></script>
+<script src="influence.js?v=4" defer></script>
 </body>
 </html>

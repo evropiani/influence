@@ -2,68 +2,12 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta http-equiv="refresh" content="0; url=./index.html">
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <title>Influence</title>
-<link rel="stylesheet" href="influence.css?v=3">
+<script>location.replace("./index.html");</script>
 </head>
-<body> 
-<div id="wrap">
-  <div id="topbar"><div id="scoreboard"></div><div id="clock">0:00</div></div>
-  <div id="stage">
-    <canvas id="game" width="1000" height="667"></canvas>
-    <canvas id="minimap" width="150" height="101"></canvas>
-    <div id="flash"></div>
-    <div id="spawnHint"></div>
-    <div id="overlay">
-     <div id="ovbox">
-      <div id="otitle">Influence</div>
-      <div id="osub"></div>
-      <div id="setup" class="field" style="gap:18px">
-        <div class="field"><label>Clan tag &amp; name</label><div class="namerow"><input id="tagIn" maxlength="3" placeholder="TAG" autocomplete="off"><input id="nameIn" maxlength="14" value="Player" autocomplete="off"></div></div>
-        <div class="field"><label>Your colour</label><div id="swatches"></div></div>
-        <div class="field"><label>Opponents (0–99)</label><div id="opps"></div></div>
-        <div class="field"><label>Difficulty</label><div id="diff"></div></div>
-        <div class="field"><label>Mode</label><div id="mode"></div></div>
-        <div class="field"><label>Play with a friend · P2P</label>
-          <div id="mpBtns"><button class="seg" id="mpHost">Host</button><button class="seg" id="mpJoin">Join</button></div>
-          <div id="mpBtns2"><button class="seg" id="mpAdd" style="display:none">Add Player</button></div>
-          <div id="mpBox" style="display:none">
-            <div class="mpl" id="mpOutL"></div>
-            <div class="mprow"><textarea id="mpOut" readonly spellcheck="false"></textarea><button class="seg" id="mpCopy">Copy</button></div>
-            <div class="mpl" id="mpInL"></div>
-            <div class="mprow"><textarea id="mpIn" spellcheck="false" placeholder="paste code here"></textarea><button class="seg" id="mpApply">Connect</button></div>
-            <div id="mpStatus"></div>
-          </div>
-        </div>
-      </div>
-      <div id="standings"></div>
-      <button id="obtn">Start</button>
-      <button id="menuBtn2" style="display:none">Main menu</button>
-     </div>
-    </div>
-  </div>
-  <div id="bottombar">
-    <div class="stat" id="influence"><span class="k">Influence</span><span class="v">0</span></div>
-    <div class="stat"><span class="k">Income</span><span class="v" id="incomeV">0</span><span class="ctx">/s</span></div>
-    <div class="commit"><span class="k" title="How much of your influence each click spends">Influence / click</span><input id="pct" type="range" min="5" max="100" step="5" value="50"><span id="pctV">50%</span><span class="ctx">&rarr; <b id="budgetV">0</b> px</span></div>
-    <span id="cellInfo"></span>
-    <span id="baseInfo" class="ok"></span>
-    <div id="buildbar">
-      <button id="wallBtn" class="bbtn" title="Hotkey: 1 (or Ctrl+click)" disabled>Wall 20</button>
-      <button id="farmBtn" class="bbtn" title="Hotkey: 2" disabled>Farm 400</button>
-      <button id="outBtn" class="bbtn" title="Hotkey: 3" disabled>Outpost 300</button>
-      <button id="bombBtn" class="bbtn" title="Hotkey: 4" disabled>Bomb 250</button>
-      <button id="sndBtn" class="bbtn" title="Sound on/off (Hotkey: M)">♪ On</button>
-      <button id="menuBtn" class="bbtn" title="Quit to the main menu">☰ Menu</button>
-    </div>
-    <div class="spacer"></div>
-    <div id="hint">Tap to grow · drag to pan · wheel to zoom · keys <b>1–4</b> tools · <b>Q/E</b> influence/click · Ctrl+click paints walls</div>
-  </div>
-</div>
-
-<script src="sound.js?v=3" defer></script>
-<script src="net.js?v=3" defer></script>
-<script src="influence.js?v=3" defer></script>
+<body style="background:#141821;color:#97a2b4;font-family:ui-monospace,Menlo,monospace;display:grid;place-items:center;height:100vh;margin:0">
+<p>The game moved to the front page — <a style="color:#cf7a3f" href="./index.html">play here</a>.</p>
 </body>
 </html>

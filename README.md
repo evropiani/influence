@@ -11,8 +11,8 @@
 
 **A fast browser land-grab.** Paint the map your colour, feed your economy, ruin somebody's afternoon.
 
-[![Play now](https://img.shields.io/badge/▶_PLAY_NOW-cf7a3f?style=for-the-badge)](https://evropiani.github.io/influence/influence.html)
-[![How to play](https://img.shields.io/badge/How_to_play-2b313f?style=for-the-badge)](https://evropiani.github.io/influence/)
+[![Play now](https://img.shields.io/badge/▶_PLAY_NOW-cf7a3f?style=for-the-badge)](https://evropiani.github.io/influence/)
+[![Tutorial](https://img.shields.io/badge/Tutorial-2b313f?style=for-the-badge)](https://evropiani.github.io/influence/tutorial.html)
 
 ![status](https://img.shields.io/badge/status-beta-cf7a3f) ![stack](https://img.shields.io/badge/vanilla-HTML·CSS·JS-3a8f86) ![deps](https://img.shields.io/badge/dependencies-zero-5566a6)
 
@@ -34,7 +34,7 @@
 
 ![The Zone mode — circular map with the red warning ring](screenshots/zone.png)
 
-> 📚 **Every mode and every tool has a step-by-step illustrated tutorial on the [How to Play page](https://evropiani.github.io/influence/).**
+> 📚 **Every mode and every tool is explained on the [Tutorial page](https://evropiani.github.io/influence/tutorial.html).**
 
 <details>
 <summary>Start screen (colours, opponents, difficulty, mode)</summary>
@@ -49,7 +49,7 @@ You have **influence**. It buys land — one point per cell. Land and captured *
 
 - **Bright** enemy land is fresh, soft, and cheap to take. **Dark** land is dug in and expensive.
 - Once you already dominate the map, new land costs a little more per cell — **supply lines stretch**, so a lead has to be re-earned instead of steamrolling itself. Still hard; just no runaway blowouts.
-- Nodes 🎯 pay income, raise your influence cap, and extend your reach. Steal an enemy's for a fat bonus.
+- Nodes 🎯 pay income, raise your influence cap, and extend your reach — and they **level up** the longer you hold them (up to +60% income). Steal an enemy's for a fat bonus, bigger if it's levelled.
 - Grey **rock barriers** ⬜ carve up the map — impassable, and new ones form *mid-round*. No sniping across open ground.
 - Lose your **base** ⭐ and your income drops 30% until you rebuild.
 
@@ -73,9 +73,9 @@ You have **influence**. It buys land — one point per cell. Land and captured *
 | Sound / Menu | `M` for sound · **☰ Menu** to quit | ♪ button · ☰ Menu |
 | Jump | Click minimap | Tap minimap |
 
-## 👥 Play with a friend (P2P)
+## 👥 Multiplayer (P2P)
 
-Up to **4 humans** in one match (host + 3 friends), plus bots — or **zero bots** for a pure friend fight. The browsers connect **directly to each other**, no server, no accounts. Host presses **Host** and sends the invite code to a friend; the friend presses **Join**, pastes it, and sends the reply code back; host pastes that — then **Add Player** for the next one — and starts the game. Full flow on the [How to Play page](https://evropiani.github.io/influence/).
+Up to **4 humans** in one match (host + 3 friends), plus bots — or **zero bots** for a pure friend fight. The browsers connect **directly to each other**, no server, no accounts. Host presses **Host** and gets a **6-character code**; each friend presses **Join** and types it in — then the host hits **Add Player** for the next one and starts the game. Full flow on the [Tutorial page](https://evropiani.github.io/influence/tutorial.html).
 
 **Short codes:** with an optional lightweight signaling relay configured, invites become **6-character codes** the friend just types in (otherwise the long copy-paste codes are used). The relay only holds a connection handshake for a few minutes and deletes each code the moment it is used — no game or personal data.
 
@@ -93,8 +93,9 @@ Up to **4 humans** in one match (host + 3 friends), plus bots — or **zero bots
 
 ```
 .
-├── index.html      # landing page / how-to-play
-├── influence.html  # game markup
+├── index.html      # the game (site root)
+├── tutorial.html   # how to play
+├── influence.html  # legacy redirect to index.html
 ├── influence.css   # game styles
 ├── influence.js    # game logic
 ├── sound.js        # procedural music & sound effects (Web Audio)
@@ -110,7 +111,7 @@ Self-contained vanilla HTML/CSS/JS — no build step, no dependencies, no framew
 
 ## 🚀 Running locally
 
-Open `influence.html` in a browser, or serve the folder:
+Open `index.html` in a browser, or serve the folder:
 
 ```
 npx serve .
