@@ -1,7 +1,12 @@
 name: Deploy to cPanel mirror
 
-# Mirrors the site to a private server on every push to main. The FTP account is
-# scoped to the target directory, so "./" below is already the right place.
+# Mirrors the site to the private server on every push to main.
+#
+# IMPORTANT: the FTP account is scoped to the projects.hamza.at DOCUMENT ROOT,
+# not to the influence folder — so the site is staged into an influence/
+# subfolder locally and synced from there. Never sync the repo root directly:
+# that squats the game's files onto the root of the domain (which hosts the
+# owner's own landing page and other projects).
 on:
   push:
     branches: [main]
@@ -17,6 +22,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Stage the site under influence/
+        run: |
+          mkdir -p _site/influence
+          rsync -a --exclude '_site' --exclude '.git' --exclude '.github' ./ _site/influence/
+
       - name: Sync files via FTPS
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
@@ -24,5 +34,9 @@ jobs:
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
           protocol: ftps
+          local-dir: ./_site/
           server-dir: ./
-          # .git*, .github and node_modules are excluded by the action's defaults
+          # The sync state lives at the server root, so this run also DELETES the
+          # game files earlier runs wrongly uploaded to the domain root (only files
+          # this action itself uploaded — the owner's own files are not tracked and
+          # are never touched).
